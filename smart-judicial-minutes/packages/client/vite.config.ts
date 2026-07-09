@@ -40,6 +40,9 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./test/setup.ts'],
+    // Unit/component tests only; the Playwright E2E specs live in ./e2e.
+    include: ['test/**/*.test.{ts,tsx}'],
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**'],
     coverage: {
       provider: 'v8',
       reporter: ['text-summary', 'lcov'],

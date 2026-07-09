@@ -9,19 +9,32 @@ export interface TeamsMeetingContext {
   inTeams: boolean;
 }
 
-let initialized = false;
+/** How long to wait for the Teams host to acknowledge initialization. */
+const INIT_TIMEOUT_MS = 2000;
 
-/** Initializes the Teams JS SDK exactly once. */
+let initPromise: Promise<boolean> | null = null;
+
+/**
+ * Initializes the Teams JS SDK exactly once. Races initialization against a
+ * short timeout so the app never hangs on a spinner when it is opened outside a
+ * Teams host (standalone browser, E2E) — it degrades to non-Teams mode instead.
+ */
 export async function initTeams(): Promise<boolean> {
-  if (initialized) return true;
-  try {
-    await app.initialize();
-    initialized = true;
-    return true;
-  } catch {
-    // Not hosted inside Teams (e.g. local browser dev).
-    return false;
+  if (!initPromise) {
+    initPromise = (async () => {
+      try {
+        const timeout = new Promise<never>((_resolve, reject) =>
+          setTimeout(() => reject(new Error('teams-init-timeout')), INIT_TIMEOUT_MS),
+        );
+        await Promise.race([app.initialize(), timeout]);
+        return true;
+      } catch {
+        // Not hosted inside Teams (local browser dev / standalone).
+        return false;
+      }
+    })();
   }
+  return initPromise;
 }
 
 /** Resolves the meeting/user context the app binds its session to. */
@@ -83,10 +96,11 @@ export async function configureTab(contentUrl: string): Promise<void> {
   await pages.config.setValidityState(true);
 }
 
-/** Registers a callback fired when the Teams host theme changes. */
+/** Registers a callback fired when the Teams host theme changes (no-op outside Teams). */
 export function registerThemeChangeHandler(handler: (theme: string) => void): void {
-  if (!initialized) return;
-  app.registerOnThemeChangeHandler(handler);
+  void initTeams().then((inTeams) => {
+    if (inTeams) app.registerOnThemeChangeHandler(handler);
+  });
 }
 
 /**

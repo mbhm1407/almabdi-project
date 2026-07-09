@@ -21,6 +21,9 @@ npm-debug.log*
 # Coverage & test output
 coverage/
 .vitest/
+playwright-report/
+test-results/
+.playwright/
 
 # Editor
 .vscode/*
