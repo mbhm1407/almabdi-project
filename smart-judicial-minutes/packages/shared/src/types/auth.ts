@@ -18,9 +18,3 @@ export interface AuthenticatedUser {
   email: string;
   roles: Role[];
 }
-
-export const ROLES: Record<Role, Role> = {
-  clerk: 'clerk',
-  viewer: 'viewer',
-  admin: 'admin',
-};

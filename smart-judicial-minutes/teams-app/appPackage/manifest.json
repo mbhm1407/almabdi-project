@@ -22,7 +22,7 @@
     "color": "color.png",
     "outline": "outline.png"
   },
-  "accentColor": "#5B5FC7",
+  "accentColor": "#217C46",
   "configurableTabs": [
     {
       "configurationUrl": "https://${{APP_DOMAIN}}/config",

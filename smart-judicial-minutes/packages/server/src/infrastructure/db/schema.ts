@@ -52,7 +52,6 @@ BEGIN
       REFERENCES dbo.Sessions (id) ON DELETE CASCADE
   );
   CREATE INDEX IX_Segments_session ON dbo.TranscriptSegments (sessionId, offsetMs);
-  CREATE FULLTEXT CATALOG smj_ft AS DEFAULT;
 END;
 
 -- Additive migration for databases created before speakerRole existed.
@@ -94,9 +93,6 @@ END;
 
 export async function ensureSchema(): Promise<void> {
   const pool = await getPool();
-  // Full-text catalog creation can fail if the feature is unavailable; run the
-  // core DDL first, and downgrade the full-text index to a plain LIKE search.
-  const coreDdl = DDL.replace(/\s*CREATE FULLTEXT CATALOG smj_ft AS DEFAULT;\s*/g, '\n');
-  await pool.request().batch(coreDdl);
+  await pool.request().batch(DDL);
   logger.info('Database schema is ready');
 }

@@ -12,8 +12,8 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parent.parent / "teams-app" / "appPackage"
 
-# Microsoft Teams brand-ish purple.
-BRAND = (91, 95, 199, 255)
+# Ministry of Justice green (matches the app's Fluent brand ramp, shade 80).
+BRAND = (33, 124, 70, 255)  # #217C46
 WHITE = (255, 255, 255, 255)
 CLEAR = (0, 0, 0, 0)
 
