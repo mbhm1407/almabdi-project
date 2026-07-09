@@ -1,0 +1,38 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+    image: smj-server
+    ports:
+      - '3978:3978'
+    environment:
+      NODE_ENV: production
+      PORT: 3978
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://teams.microsoft.com}
+      ENTRA_TENANT_ID: ${ENTRA_TENANT_ID}
+      ENTRA_API_CLIENT_ID: ${ENTRA_API_CLIENT_ID}
+      ENTRA_API_SCOPE: ${ENTRA_API_SCOPE:-access_as_user}
+      AZURE_SPEECH_KEY: ${AZURE_SPEECH_KEY}
+      AZURE_SPEECH_REGION: ${AZURE_SPEECH_REGION}
+      SPEECH_LOCALE: ${SPEECH_LOCALE:-ar-SA}
+      SQL_SERVER: ${SQL_SERVER}
+      SQL_DATABASE: ${SQL_DATABASE}
+      SQL_USER: ${SQL_USER}
+      SQL_PASSWORD: ${SQL_PASSWORD}
+      SQL_ENCRYPT: ${SQL_ENCRYPT:-true}
+      BLOB_ACCOUNT_NAME: ${BLOB_ACCOUNT_NAME}
+      BLOB_CONTAINER: ${BLOB_CONTAINER:-recordings}
+      BLOB_CONNECTION_STRING: ${BLOB_CONNECTION_STRING:-}
+    restart: unless-stopped
+
+  client:
+    build:
+      context: .
+      dockerfile: packages/client/Dockerfile
+    image: smj-client
+    ports:
+      - '8080:8080'
+    depends_on:
+      - server
+    restart: unless-stopped

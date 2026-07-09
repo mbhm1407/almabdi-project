@@ -1,0 +1,38 @@
+{
+  "name": "smart-judicial-minutes",
+  "version": "1.0.0",
+  "private": true,
+  "description": "المحضر الذكي — Smart Judicial Minutes: a Microsoft Teams meeting app that produces a live Arabic transcript for the court clerk.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "workspaces": [
+    "packages/shared",
+    "packages/server",
+    "packages/client"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @smj/shared && npm run build --workspace @smj/server && npm run build --workspace @smj/client",
+    "dev": "npm-run-all --parallel dev:server dev:client",
+    "dev:server": "npm run dev --workspace @smj/server",
+    "dev:client": "npm run dev --workspace @smj/client",
+    "lint": "eslint . --ext .ts,.tsx",
+    "format": "prettier --write \"packages/**/*.{ts,tsx,json,css,md}\"",
+    "format:check": "prettier --check \"packages/**/*.{ts,tsx,json,css,md}\"",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-react": "^7.37.2",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "npm-run-all": "^4.1.5",
+    "prettier": "^3.4.2",
+    "typescript": "^5.7.2"
+  }
+}

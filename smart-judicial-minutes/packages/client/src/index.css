@@ -1,0 +1,19 @@
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', 'Segoe UI Web (Arabic)', Tahoma, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Ensure the tab fills the Teams side panel. */
+#root {
+  display: flex;
+  flex-direction: column;
+}
