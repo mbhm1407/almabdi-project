@@ -77,6 +77,26 @@ describe('SpeechTranscriber auto-reconnect', () => {
     await t.stop();
   });
 
+  it('coalesces repeated cancellations into a single reconnect (no mic leak)', async () => {
+    const cbs = callbacks();
+    const t = new SpeechTranscriber(cbs);
+    await t.start();
+    expect(instances).toHaveLength(1);
+
+    // Azure can emit several `canceled` events for one disconnect; a closing
+    // transcriber also fires more. Only one new transcriber must be created.
+    instances[0]!.canceled?.(null, { errorDetails: 'glitch 1' });
+    instances[0]!.canceled?.(null, { errorDetails: 'glitch 2' });
+    instances[0]!.canceled?.(null, { errorDetails: 'glitch 3' });
+    expect(cbs.onReconnecting).toHaveBeenCalledTimes(1);
+
+    await vi.waitFor(() => expect(instances).toHaveLength(2), { timeout: 4000 });
+    // Still exactly two — no runaway.
+    expect(instances).toHaveLength(2);
+
+    await t.stop();
+  });
+
   it('does not reconnect after an intentional stop', async () => {
     const cbs = callbacks();
     const t = new SpeechTranscriber(cbs);

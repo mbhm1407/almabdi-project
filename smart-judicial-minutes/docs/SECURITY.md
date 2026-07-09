@@ -64,9 +64,13 @@ Trusted: API server, Azure SQL, Azure Blob, Azure Speech (server-side key)
 
 ## Rate limiting & abuse
 
-- Global rate limiter (`express-rate-limit`) with configurable window/max.
+- Rate limiter (`express-rate-limit`) keyed **per authenticated user** (a hash of
+  the bearer token), not per IP — so many users behind one corporate NAT egress
+  are not throttled collectively. Unauthenticated requests fall back to the IP.
+  Edge-level IP DoS protection is expected to be handled by Azure Front Door /
+  API Management.
 - Request body caps: JSON `2mb`; recording upload `500mb` with allow-listed
-  audio content types; segment batches ≤ 500.
+  audio content types; segment batches ≤ 500 (the client streams in ≤ 250 chunks).
 
 ## Secrets
 
@@ -107,6 +111,12 @@ Trusted: API server, Azure SQL, Azure Blob, Azure Speech (server-side key)
 - Two **moderate** transitive advisories via Microsoft's Speech SDK (`uuid`
   bounds-check). Not reachable with untrusted input in our usage; awaiting an
   upstream SDK release. Tracked by the CI dependency-audit job.
+- **Recording upload buffers the audio in memory** (up to the 500 MB cap) before
+  writing to Blob. This is an authenticated, once-per-hearing, per-user
+  rate-limited operation, so it is not an acute vector, but under many concurrent
+  uploads it adds memory pressure. Recommended enhancement: stream the request
+  body directly to Blob (`uploadStream`) to bound memory — deferred because it
+  requires validation against live Azure Blob.
 
 ---
 

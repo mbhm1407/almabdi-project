@@ -54,6 +54,9 @@ export interface UseTranscription {
 }
 
 const FLUSH_INTERVAL_MS = 4000;
+/** Max segments per save request — kept well under the server's 500 cap so a
+ * large backlog (e.g. after an outage) can never exceed the batch limit. */
+const MAX_FLUSH_BATCH = 250;
 
 /**
  * Orchestrates a live transcription session end to end:
@@ -97,17 +100,12 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
     (speakerId: string): { label: string; role: JudicialRole } => {
       const existing = assignmentsRef.current.get(speakerId);
       if (existing) return existing;
-      let index = speakerIndexRef.current.get(speakerId);
-      if (index == null) {
-        index = speakerIndexRef.current.size + 1;
-        speakerIndexRef.current.set(speakerId, index);
-        const created = { label: `متحدث ${index}`, role: 'unassigned' as JudicialRole };
-        assignmentsRef.current.set(speakerId, created);
-        setSpeakers((prev) => [...prev, { speakerId, ...created }]);
-        return created;
-      }
+      // First time we see this diarized speaker: give it a default label/role.
+      const index = speakerIndexRef.current.size + 1;
+      speakerIndexRef.current.set(speakerId, index);
       const created = { label: `متحدث ${index}`, role: 'unassigned' as JudicialRole };
       assignmentsRef.current.set(speakerId, created);
+      setSpeakers((prev) => [...prev, { speakerId, ...created }]);
       return created;
     },
     [],
@@ -155,18 +153,25 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
   const flush = useCallback(async () => {
     const current = sessionRef.current;
     if (!current || pendingRef.current.size === 0) return;
-    const batch = [...pendingRef.current.values()];
+    const all = [...pendingRef.current.values()];
     pendingRef.current.clear();
+    setIsSaving(true);
     try {
-      setIsSaving(true);
-      await apiClient.saveSegments(current.id, batch);
-      // Saved server-side; refresh the local backup to whatever is still pending.
-      transcriptBackup.save(current.id, [...pendingRef.current.values()]);
-    } catch (err) {
-      for (const s of batch) pendingRef.current.set(s.id, s);
-      transcriptBackup.save(current.id, [...pendingRef.current.values()]);
-      setError(err instanceof ApiClientError ? err : new Error('تعذّر حفظ النص'));
+      // Persist in bounded chunks so a large backlog never exceeds the server's
+      // batch cap. On the first failed chunk, re-queue it and the rest and let
+      // the next tick retry — nothing is lost.
+      for (let i = 0; i < all.length; i += MAX_FLUSH_BATCH) {
+        const chunk = all.slice(i, i + MAX_FLUSH_BATCH);
+        try {
+          await apiClient.saveSegments(current.id, chunk);
+        } catch (err) {
+          for (const s of all.slice(i)) pendingRef.current.set(s.id, s);
+          setError(err instanceof ApiClientError ? err : new Error('تعذّر حفظ النص'));
+          break;
+        }
+      }
     } finally {
+      transcriptBackup.save(current.id, [...pendingRef.current.values()]);
       setIsSaving(false);
     }
   }, []);
@@ -223,6 +228,8 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
           meetingId: context.meetingId,
           meetingTitle: setup.meetingTitle || context.meetingTitle,
           caseNumber: setup.caseNumber || null,
+          circuitName: setup.circuitName || null,
+          judgeName: setup.judgeName || null,
         });
         sessionRef.current = created;
         setSession(created);
@@ -258,6 +265,9 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
         setStatus('error');
         setError(err);
         await teardown();
+        // Release the microphone if the recorder had already opened a stream.
+        await recorderRef.current?.stop().catch(() => undefined);
+        recorderRef.current = null;
       }
     },
     [status, context, upsertSegment, flush, startClock, teardown],

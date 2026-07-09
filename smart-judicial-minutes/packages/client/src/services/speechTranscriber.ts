@@ -45,6 +45,7 @@ export class SpeechTranscriber {
   private sessionStart = 0;
   private paused = false;
   private stopping = false;
+  private restarting = false;
   private restartAttempts = 0;
   /** Maps interim utterance ids so a final result overwrites its interim row. */
   private readonly activeBySpeaker = new Map<string, string>();
@@ -65,6 +66,7 @@ export class SpeechTranscriber {
 
   async start(): Promise<void> {
     this.stopping = false;
+    this.restarting = false;
     this.restartAttempts = 0;
     this.sessionStart = Date.now();
     this.sdk = await import('microsoft-cognitiveservices-speech-sdk');
@@ -77,12 +79,14 @@ export class SpeechTranscriber {
     const sdk = this.sdk;
     if (!sdk) throw new Error('Speech SDK not loaded');
     const token = await apiClient.getSpeechToken();
-    this.speechConfig = sdk.SpeechConfig.fromAuthorizationToken(token.token, token.region);
-    this.speechConfig.speechRecognitionLanguage = token.locale;
+    if (this.stopping) return; // aborted before we opened the microphone
+
+    const speechConfig = sdk.SpeechConfig.fromAuthorizationToken(token.token, token.region);
+    speechConfig.speechRecognitionLanguage = token.locale;
+    this.speechConfig = speechConfig;
 
     const audioConfig = sdk.AudioConfig.fromDefaultMicrophoneInput();
-    const transcriber = new sdk.ConversationTranscriber(this.speechConfig, audioConfig);
-    this.transcriber = transcriber;
+    const transcriber = new sdk.ConversationTranscriber(speechConfig, audioConfig);
 
     transcriber.transcribing = (_s, e) => this.handleEvent(e, false);
     transcriber.transcribed = (_s, e) => {
@@ -100,19 +104,34 @@ export class SpeechTranscriber {
         (err) => reject(new Error(err)),
       );
     });
+
+    // If stop() was requested while we were connecting, tear the new transcriber
+    // down immediately so the microphone is never left open.
+    if (this.stopping) {
+      await new Promise<void>((resolve) =>
+        transcriber.stopTranscribingAsync(
+          () => resolve(),
+          () => resolve(),
+        ),
+      );
+      transcriber.close();
+      return;
+    }
+    this.transcriber = transcriber;
   }
 
   private handleCanceled(details: string | undefined): void {
-    if (this.stopping) return;
+    // Ignore duplicate cancellations while a reconnect is already pending or in
+    // flight — otherwise each event would spawn another transcriber (mic leak).
+    if (this.stopping || this.restarting || this.restartTimer !== null) return;
     if (this.restartAttempts < MAX_RESTART_ATTEMPTS) {
       this.restartAttempts += 1;
       this.callbacks.onReconnecting?.(this.restartAttempts);
       const backoff = Math.min(1000 * 2 ** (this.restartAttempts - 1), 15000);
       this.restartTimer = setTimeout(() => {
+        this.restartTimer = null;
         if (this.stopping) return;
-        void this.restart().catch((err) =>
-          this.callbacks.onError(err instanceof Error ? err.message : 'reconnect failed'),
-        );
+        void this.restart();
       }, backoff);
     } else {
       this.callbacks.onError(details || 'Transcription was canceled');
@@ -121,14 +140,22 @@ export class SpeechTranscriber {
 
   /** Recreates the transcriber after a disconnect, preserving the session clock. */
   private async restart(): Promise<void> {
+    if (this.restarting || this.stopping) return;
+    this.restarting = true;
     try {
-      this.transcriber?.close();
-    } catch {
-      /* already closed */
+      try {
+        this.transcriber?.close();
+      } catch {
+        /* already closed */
+      }
+      this.transcriber = null;
+      await this.buildAndStart();
+      if (!this.stopping) this.callbacks.onReconnected?.();
+    } catch (err) {
+      this.callbacks.onError(err instanceof Error ? err.message : 'reconnect failed');
+    } finally {
+      this.restarting = false;
     }
-    this.transcriber = null;
-    await this.buildAndStart();
-    this.callbacks.onReconnected?.();
   }
 
   private async refreshToken(): Promise<void> {

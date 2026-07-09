@@ -63,6 +63,8 @@ vi.mock('../src/services/apiClient', () => ({
 }));
 
 import { useTranscription } from '../src/features/transcript/hooks/useTranscription';
+import { apiClient } from '../src/services/apiClient';
+import type { RecognizedSegment } from '../src/services/speechTranscriber';
 
 const context = {
   meetingId: 'm-1',
@@ -101,5 +103,55 @@ describe('useTranscription reconnect state', () => {
 
     act(() => captured!.onReconnected?.());
     expect(result.current.isReconnecting).toBe(false);
+  });
+});
+
+describe('useTranscription persistence', () => {
+  it('passes circuit and judge to startSession', async () => {
+    const { result } = renderHook(() => useTranscription(context));
+    await act(async () => {
+      await result.current.start(setup);
+    });
+    expect(apiClient.startSession).toHaveBeenCalledWith(
+      expect.objectContaining({ circuitName: 'الدائرة', judgeName: 'القاضي' }),
+    );
+  });
+
+  it('flushes a large backlog in chunks under the 500-segment server cap', async () => {
+    const { result } = renderHook(() => useTranscription(context));
+    await act(async () => {
+      await result.current.start(setup);
+    });
+
+    // Push 600 finalized utterances (e.g. accumulated during an API outage).
+    act(() => {
+      for (let i = 0; i < 600; i++) {
+        const seg: RecognizedSegment = {
+          id: `00000000-0000-0000-0000-${i.toString().padStart(12, '0')}`,
+          speakerId: 'Guest-1',
+          speakerLabel: 'Guest-1',
+          speakerRole: 'unassigned',
+          text: `مداخلة ${i}`,
+          timestamp: '2026-07-08T09:00:00.000Z',
+          offsetMs: i * 1000,
+          durationMs: 900,
+          isFinal: true,
+          interim: false,
+        };
+        captured!.onSegment(seg);
+      }
+    });
+
+    await act(async () => {
+      await result.current.stop();
+    });
+
+    const calls = (apiClient.saveSegments as ReturnType<typeof vi.fn>).mock.calls;
+    const totalSaved = calls.reduce((n, c) => n + (c[1] as unknown[]).length, 0);
+    expect(totalSaved).toBe(600);
+    // No single request may exceed the cap.
+    for (const c of calls) {
+      expect((c[1] as unknown[]).length).toBeLessThanOrEqual(250);
+    }
   });
 });

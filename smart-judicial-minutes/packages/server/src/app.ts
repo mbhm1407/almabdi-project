@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -64,7 +65,7 @@ export function createApp(): Express {
     cors({
       origin: corsOrigins,
       credentials: true,
-      methods: ['GET', 'POST', 'PATCH', 'DELETE'],
+      methods: ['GET', 'POST', 'DELETE'],
       allowedHeaders: ['Authorization', 'Content-Type', 'x-request-id'],
       exposedHeaders: ['x-request-id'],
     }),
@@ -88,6 +89,19 @@ export function createApp(): Express {
       max: env.RATE_LIMIT_MAX,
       standardHeaders: true,
       legacyHeaders: false,
+      // A custom per-user keyGenerator is provided below; the built-in
+      // validation warnings (which assume the default IP keyGenerator) don't apply.
+      validate: false,
+      // Key per authenticated user (derived from the bearer token), not per IP.
+      // Many court users share one corporate NAT egress IP, so an IP-only limiter
+      // would throttle them collectively. Unauthenticated requests fall back to IP.
+      keyGenerator: (req) => {
+        const auth = req.headers.authorization;
+        if (auth && auth.startsWith('Bearer ')) {
+          return `u:${createHash('sha256').update(auth.slice(7)).digest('hex')}`;
+        }
+        return req.ip ?? 'unknown';
+      },
     }),
   );
 
