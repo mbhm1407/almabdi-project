@@ -1,8 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { v4 as uuid } from 'uuid';
 import { apiClient, ApiClientError } from '../../../services/apiClient';
 import { AudioRecorder } from '../../../services/audioRecorder';
 import { SpeechTranscriber, type RecognizedSegment } from '../../../services/speechTranscriber';
+import { transcriptBackup } from '../../../services/transcriptBackup';
 import type {
+  Bookmark,
   CreateSegmentInput,
   JudicialRole,
   TranscriptionSession,
@@ -35,6 +38,7 @@ export interface UseTranscription {
   currentSpeaker: SpeakerAssignment | null;
   elapsedMs: number;
   recording: RecordingInfo | null;
+  bookmarks: Bookmark[];
   error: unknown | null;
   isSaving: boolean;
   start: (setup: SessionSetup) => Promise<void>;
@@ -42,6 +46,8 @@ export interface UseTranscription {
   resume: () => void;
   stop: () => Promise<void>;
   assignSpeaker: (speakerId: string, label: string, role: JudicialRole) => void;
+  addBookmark: (label: string) => Promise<void>;
+  removeBookmark: (id: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -66,6 +72,7 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
   const [currentSpeaker, setCurrentSpeaker] = useState<SpeakerAssignment | null>(null);
   const [elapsedMs, setElapsedMs] = useState(0);
   const [recording, setRecording] = useState<RecordingInfo | null>(null);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [error, setError] = useState<unknown | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -134,6 +141,9 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
           durationMs: incoming.durationMs,
           isFinal: true,
         });
+        // Mirror unsaved finals to local storage so a crash/reload loses nothing.
+        const current = sessionRef.current;
+        if (current) transcriptBackup.save(current.id, [...pendingRef.current.values()]);
       }
     },
     [resolveAssignment],
@@ -147,9 +157,12 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
     try {
       setIsSaving(true);
       await apiClient.saveSegments(current.id, batch);
+      // Saved server-side; refresh the local backup to whatever is still pending.
+      transcriptBackup.save(current.id, [...pendingRef.current.values()]);
     } catch (err) {
       for (const s of batch) pendingRef.current.set(s.id, s);
-      setError(err instanceof ApiClientError ? err : new Error('تعذر حفظ النص'));
+      transcriptBackup.save(current.id, [...pendingRef.current.values()]);
+      setError(err instanceof ApiClientError ? err : new Error('تعذّر حفظ النص'));
     } finally {
       setIsSaving(false);
     }
@@ -199,6 +212,7 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
       setElapsedMs(0);
       elapsedRef.current = 0;
       setRecording(null);
+      setBookmarks([]);
 
       try {
         const { session: created } = await apiClient.startSession({
@@ -216,6 +230,7 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
           onStopped: () => {
             /* handled by explicit stop() */
           },
+          onReconnected: () => setError(null),
         });
         transcriberRef.current = transcriber;
 
@@ -280,6 +295,8 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
         const { session: stopped } = await apiClient.stopSession(current.id);
         sessionRef.current = stopped;
         setSession(stopped);
+        // Everything is persisted server-side now; drop the local safety copy.
+        if (pendingRef.current.size === 0) transcriptBackup.clear(current.id);
       }
       setCurrentSpeaker(null);
       setStatus('idle');
@@ -318,6 +335,43 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
     }
   }, []);
 
+  const addBookmark = useCallback(async (label: string) => {
+    const current = sessionRef.current;
+    const trimmed = label.trim();
+    if (!current || !trimmed) return;
+    const bookmark: Bookmark = {
+      id: uuid(),
+      sessionId: current.id,
+      label: trimmed,
+      offsetMs: elapsedRef.current,
+      timestamp: new Date().toISOString(),
+    };
+    // Optimistic: show immediately (never lose the clerk's mark), then persist.
+    setBookmarks((prev) => [...prev, bookmark].sort((a, b) => a.offsetMs - b.offsetMs));
+    try {
+      await apiClient.addBookmark(current.id, {
+        id: bookmark.id,
+        label: bookmark.label,
+        offsetMs: bookmark.offsetMs,
+        timestamp: bookmark.timestamp,
+      });
+    } catch (err) {
+      setError(err instanceof ApiClientError ? err : new Error('تعذّر حفظ العلامة'));
+    }
+  }, []);
+
+  const removeBookmark = useCallback(async (id: string) => {
+    const current = sessionRef.current;
+    setBookmarks((prev) => prev.filter((b) => b.id !== id));
+    if (current) {
+      try {
+        await apiClient.deleteBookmark(current.id, id);
+      } catch {
+        /* removal already reflected locally */
+      }
+    }
+  }, []);
+
   const clearError = useCallback(() => setError(null), []);
 
   useEffect(() => {
@@ -335,6 +389,7 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
     currentSpeaker,
     elapsedMs,
     recording,
+    bookmarks,
     error,
     isSaving,
     start,
@@ -342,6 +397,8 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
     resume,
     stop,
     assignSpeaker,
+    addBookmark,
+    removeBookmark,
     clearError,
   };
 }

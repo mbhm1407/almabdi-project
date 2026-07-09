@@ -16,6 +16,10 @@ export const transcriptionSessionSchema = z.object({
   meetingTitle: z.string().min(1).max(512),
   /** Court case number this hearing belongs to (e.g. "٤٣٥/٢/ق"). Optional. */
   caseNumber: z.string().max(128).nullable(),
+  /** Name of the judicial circuit hearing the case (اسم الدائرة). Optional. */
+  circuitName: z.string().max(256).nullable(),
+  /** Name of the presiding judge (القاضي). Optional. */
+  judgeName: z.string().max(256).nullable(),
   /** Teams tenant id the meeting belongs to. */
   tenantId: z.string().min(1).max(128),
   /** Entra object id of the clerk who created the session. */
@@ -35,6 +39,8 @@ export const createSessionSchema = z.object({
   meetingId: z.string().min(1).max(256),
   meetingTitle: z.string().min(1).max(512),
   caseNumber: z.string().max(128).nullish(),
+  circuitName: z.string().max(256).nullish(),
+  judgeName: z.string().max(256).nullish(),
 });
 export type CreateSessionInput = z.infer<typeof createSessionSchema>;
 

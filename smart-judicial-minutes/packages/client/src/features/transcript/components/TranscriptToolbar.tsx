@@ -13,7 +13,12 @@ import {
   StopRegular,
   CopyRegular,
   MusicNote2Regular,
+  BookmarkRegular,
+  BookmarkAddRegular,
+  DataBarVerticalRegular,
+  PrintRegular,
 } from '@fluentui/react-icons';
+import { AR } from '../../../strings';
 import { SearchBar } from './SearchBar';
 import { ExportMenu } from './ExportMenu';
 import type { TranscriptionStatus } from '../hooks/useTranscription';
@@ -29,7 +34,7 @@ const useStyles = makeStyles({
     backgroundColor: tokens.colorNeutralBackground1,
     flexWrap: 'wrap',
   },
-  grow: { flex: 1, display: 'flex', alignItems: 'center', minWidth: '220px' },
+  grow: { flex: 1, display: 'flex', alignItems: 'center', minWidth: '200px' },
   saving: {
     display: 'flex',
     alignItems: 'center',
@@ -45,6 +50,7 @@ interface TranscriptToolbarProps {
   isSaving: boolean;
   hasSegments: boolean;
   hasRecording: boolean;
+  bookmarkCount: number;
   searchTerm: string;
   matchCount: number;
   activeIndex: number;
@@ -54,39 +60,50 @@ interface TranscriptToolbarProps {
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
+  onAddBookmark: () => void;
+  onOpenBookmarks: () => void;
+  onOpenStatistics: () => void;
   onCopyAll: () => void;
   onOpenRecordings: () => void;
+  onPrint: () => void;
   onError: (message: string) => void;
 }
 
-/** Primary in-hearing controls: pause/resume/stop, search, copy, export, audio. */
-export function TranscriptToolbar({
-  status,
-  sessionId,
-  isSaving,
-  hasSegments,
-  hasRecording,
-  searchTerm,
-  matchCount,
-  activeIndex,
-  onSearchChange,
-  onNextMatch,
-  onPrevMatch,
-  onPause,
-  onResume,
-  onStop,
-  onCopyAll,
-  onOpenRecordings,
-  onError,
-}: TranscriptToolbarProps) {
+/** In-hearing controls: documentation state, bookmarks, search, and outputs. */
+export function TranscriptToolbar(props: TranscriptToolbarProps) {
   const styles = useStyles();
+  const {
+    status,
+    sessionId,
+    isSaving,
+    hasSegments,
+    hasRecording,
+    bookmarkCount,
+    searchTerm,
+    matchCount,
+    activeIndex,
+    onSearchChange,
+    onNextMatch,
+    onPrevMatch,
+    onPause,
+    onResume,
+    onStop,
+    onAddBookmark,
+    onOpenBookmarks,
+    onOpenStatistics,
+    onCopyAll,
+    onOpenRecordings,
+    onPrint,
+    onError,
+  } = props;
+
   const isActive = status === 'active';
   const isPaused = status === 'paused';
   const isLive = isActive || isPaused;
   const isBusy = status === 'starting' || status === 'stopping';
 
   return (
-    <Toolbar className={styles.bar} aria-label="أدوات النسخ">
+    <Toolbar className={styles.bar} aria-label="أدوات التوثيق">
       {isLive && (
         <>
           {isActive ? (
@@ -96,7 +113,7 @@ export function TranscriptToolbar({
               onClick={onPause}
               disabled={isBusy}
             >
-              إيقاف مؤقت
+              {AR.pause}
             </Button>
           ) : (
             <Button
@@ -105,11 +122,19 @@ export function TranscriptToolbar({
               onClick={onResume}
               disabled={isBusy}
             >
-              استئناف
+              {AR.resume}
             </Button>
           )}
           <Button appearance="secondary" icon={<StopRegular />} onClick={onStop} disabled={isBusy}>
-            إيقاف النسخ
+            {AR.stopDocumentation}
+          </Button>
+          <Button
+            appearance="primary"
+            icon={<BookmarkAddRegular />}
+            onClick={onAddBookmark}
+            disabled={isBusy}
+          >
+            {AR.addBookmark}
           </Button>
           <ToolbarDivider />
         </>
@@ -133,22 +158,46 @@ export function TranscriptToolbar({
         </span>
       )}
 
-      <Tooltip content="نسخ كامل النص" relationship="label">
+      <Tooltip content={AR.bookmarks} relationship="label">
+        <Button
+          appearance="subtle"
+          icon={<BookmarkRegular />}
+          aria-label={`${AR.bookmarks} (${bookmarkCount})`}
+          onClick={onOpenBookmarks}
+        />
+      </Tooltip>
+      <Tooltip content={AR.statistics} relationship="label">
+        <Button
+          appearance="subtle"
+          icon={<DataBarVerticalRegular />}
+          aria-label={AR.statistics}
+          onClick={onOpenStatistics}
+        />
+      </Tooltip>
+      <Tooltip content={AR.copyAll} relationship="label">
         <Button
           appearance="subtle"
           icon={<CopyRegular />}
-          aria-label="نسخ كامل النص"
+          aria-label={AR.copyAll}
           disabled={!hasSegments}
           onClick={onCopyAll}
         />
       </Tooltip>
-
+      <Tooltip content={AR.print} relationship="label">
+        <Button
+          appearance="subtle"
+          icon={<PrintRegular />}
+          aria-label={AR.print}
+          disabled={!hasSegments}
+          onClick={onPrint}
+        />
+      </Tooltip>
       {hasRecording && (
-        <Tooltip content="التسجيل الصوتي" relationship="label">
+        <Tooltip content={AR.recording} relationship="label">
           <Button
             appearance="subtle"
             icon={<MusicNote2Regular />}
-            aria-label="التسجيل الصوتي"
+            aria-label={AR.recording}
             onClick={onOpenRecordings}
           />
         </Tooltip>

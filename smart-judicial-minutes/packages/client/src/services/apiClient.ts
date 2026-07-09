@@ -1,6 +1,8 @@
 import { getSsoToken } from '../teams/teamsClient';
 import type {
   ApiError,
+  Bookmark,
+  CreateBookmarkInput,
   CreateSessionInput,
   CreateSegmentInput,
   ExportFormat,
@@ -102,6 +104,20 @@ export const apiClient = {
   },
   getRecordingUrl(sessionId: string): Promise<{ url: string }> {
     return request(`/api/sessions/${sessionId}/recording`);
+  },
+
+  // ---- Bookmarks ----
+  addBookmark(sessionId: string, input: CreateBookmarkInput): Promise<{ bookmark: Bookmark }> {
+    return request(`/api/sessions/${sessionId}/bookmarks`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+  },
+  listBookmarks(sessionId: string): Promise<{ bookmarks: Bookmark[] }> {
+    return request(`/api/sessions/${sessionId}/bookmarks`);
+  },
+  deleteBookmark(sessionId: string, bookmarkId: string): Promise<void> {
+    return request(`/api/sessions/${sessionId}/bookmarks/${bookmarkId}`, { method: 'DELETE' });
   },
 };
 

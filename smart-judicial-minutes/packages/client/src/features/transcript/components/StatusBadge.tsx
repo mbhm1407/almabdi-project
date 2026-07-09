@@ -1,5 +1,6 @@
 import { Badge, makeStyles } from '@fluentui/react-components';
 import { RecordRegular, PauseRegular, CheckmarkRegular } from '@fluentui/react-icons';
+import { AR } from '../../../strings';
 import type { TranscriptionStatus } from '../hooks/useTranscription';
 
 const useStyles = makeStyles({
@@ -15,12 +16,12 @@ const useStyles = makeStyles({
 });
 
 const LABELS: Record<TranscriptionStatus, string> = {
-  idle: 'متوقف',
-  starting: 'جارٍ البدء…',
-  active: 'يسجّل الآن',
-  paused: 'إيقاف مؤقت',
-  stopping: 'جارٍ الإيقاف…',
-  error: 'خطأ',
+  idle: AR.statusIdle,
+  starting: AR.statusStarting,
+  active: AR.statusActive,
+  paused: AR.statusPaused,
+  stopping: AR.statusStopping,
+  error: AR.statusError,
 };
 
 /** Compact, accessible indicator of the current recording/transcription state. */

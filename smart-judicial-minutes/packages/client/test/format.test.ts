@@ -27,6 +27,8 @@ describe('sessionDurationMs', () => {
     meetingId: 'm',
     meetingTitle: 't',
     caseNumber: null,
+    circuitName: null,
+    judgeName: null,
     tenantId: 'tenant',
     createdBy: 'user',
     status: 'stopped',

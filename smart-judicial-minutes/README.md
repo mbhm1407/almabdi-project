@@ -54,6 +54,27 @@ on top of the core transcription:
 - **Large, readable Arabic** typography and a distraction-free layout that shows
   only the essential controls while recording.
 
+### Ministry-grade production hardening
+
+- **Official Ministry of Justice identity** — a green Fluent UI v9 brand ramp,
+  Arabic-first copy centralized in one place, the ⚖️ emblem and «وزارة العدل»
+  wordmark, with all developer/English terminology removed.
+- **Official opening screen** — case number, circuit (الدائرة), judge, clerk,
+  hearing date and start time, then one large **بدء التوثيق** button.
+- **Courtroom header** — ministry identity, case number, circuit, live duration,
+  status, current speaker and recording state.
+- **Judicial bookmarks** (📌 إضافة علامة) — labelled moments persisted to Azure
+  SQL; clicking one jumps the transcript and seeks audio playback.
+- **Hearing statistics** — duration, speakers, words, phrases, last update,
+  connection status and speech-service status.
+- **Print** a professional RTL, escaped, ministry-branded transcript.
+- **Reliability** — automatic Speech reconnection with backoff, offline
+  detection, and a crash-safe local backup of unsaved segments so transcript
+  text is never lost.
+- **Performance** — the Azure Speech SDK is lazy-loaded (out of the initial
+  bundle) and vendors are split into cacheable chunks; the transcript is
+  virtualized and rows are memoized.
+
 ## Tech stack
 
 - **Frontend:** React + TypeScript + **Fluent UI v9**, **Microsoft Teams JS SDK v2**,

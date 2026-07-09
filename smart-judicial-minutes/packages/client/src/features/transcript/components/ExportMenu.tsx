@@ -10,6 +10,7 @@ import {
 import { ArrowDownloadRegular } from '@fluentui/react-icons';
 import type { ExportFormat } from '@smj/shared';
 import { apiClient } from '../../../services/apiClient';
+import { AR } from '../../../strings';
 
 interface ExportMenuProps {
   sessionId: string | null;
@@ -18,9 +19,9 @@ interface ExportMenuProps {
 }
 
 const FORMATS: Array<{ format: ExportFormat; label: string }> = [
-  { format: 'pdf', label: 'تصدير PDF' },
-  { format: 'docx', label: 'تصدير Word (DOCX)' },
-  { format: 'txt', label: 'تصدير نص (TXT)' },
+  { format: 'pdf', label: AR.exportPdf },
+  { format: 'docx', label: AR.exportDocx },
+  { format: 'txt', label: AR.exportTxt },
 ];
 
 /** Download the current session transcript in the chosen format. */
@@ -41,7 +42,7 @@ export function ExportMenu({ sessionId, disabled, onError }: ExportMenuProps) {
       anchor.remove();
       URL.revokeObjectURL(url);
     } catch (err) {
-      onError(err instanceof Error ? err.message : 'تعذر التصدير');
+      onError(err instanceof Error ? err.message : 'تعذّر التصدير');
     } finally {
       setBusy(false);
     }
@@ -55,7 +56,7 @@ export function ExportMenu({ sessionId, disabled, onError }: ExportMenuProps) {
           disabled={disabled || !sessionId || busy}
           appearance="secondary"
         >
-          تصدير
+          {AR.export}
         </Button>
       </MenuTrigger>
       <MenuPopover>

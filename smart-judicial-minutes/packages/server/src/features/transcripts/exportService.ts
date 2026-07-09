@@ -44,6 +44,8 @@ function speakerHeading(segment: TranscriptSegment): string {
 interface DocumentMeta {
   title: string;
   caseNumber: string;
+  circuitName: string;
+  judgeName: string;
   date: string;
   duration: string;
   entries: string;
@@ -53,6 +55,8 @@ function buildMeta(session: TranscriptionSession, segments: TranscriptSegment[])
   return {
     title: session.meetingTitle,
     caseNumber: session.caseNumber?.trim() || 'غير محدد',
+    circuitName: session.circuitName?.trim() || 'غير محددة',
+    judgeName: session.judgeName?.trim() || 'غير محدد',
     date: formatDate(session.startedAt),
     duration: formatDuration(sessionDurationMs(session)),
     entries: String(segments.filter((s) => s.isFinal).length),
@@ -84,10 +88,13 @@ export const exportService = {
   toTxt(session: TranscriptionSession, segments: TranscriptSegment[]): ExportResult {
     const meta = buildMeta(session, segments);
     const lines: string[] = [
+      'وزارة العدل',
       'المحضر الذكي — نص الجلسة',
       '',
       `عنوان الجلسة: ${meta.title}`,
       `رقم القضية: ${meta.caseNumber}`,
+      `اسم الدائرة: ${meta.circuitName}`,
+      `القاضي: ${meta.judgeName}`,
       `التاريخ: ${meta.date}`,
       `مدة الجلسة: ${meta.duration}`,
       `عدد المداخلات: ${meta.entries}`,
@@ -161,9 +168,12 @@ function docParagraph(
 function buildDocx(session: TranscriptionSession, segments: TranscriptSegment[]): Buffer {
   const meta = buildMeta(session, segments);
   const header = [
+    docParagraph('وزارة العدل', { bold: true, size: 28, spaceAfter: 40 }),
     docParagraph('المحضر الذكي — نص الجلسة', { bold: true, size: 36, spaceAfter: 120 }),
     docParagraph(`عنوان الجلسة: ${meta.title}`, { bold: true, spaceAfter: 40 }),
     docParagraph(`رقم القضية: ${meta.caseNumber}`, { spaceAfter: 40 }),
+    docParagraph(`اسم الدائرة: ${meta.circuitName}`, { spaceAfter: 40 }),
+    docParagraph(`القاضي: ${meta.judgeName}`, { spaceAfter: 40 }),
     docParagraph(`التاريخ: ${meta.date}`, { spaceAfter: 40 }),
     docParagraph(`مدة الجلسة: ${meta.duration}`, { spaceAfter: 40 }),
     docParagraph(`عدد المداخلات: ${meta.entries}`, { spaceAfter: 200 }),
@@ -232,10 +242,13 @@ function buildPdf(session: TranscriptionSession, segments: TranscriptSegment[]):
   const meta = buildMeta(session, segments);
   const maxChars = 90;
   const lines: string[] = [
-    'Smart Judicial Minutes / المحضر الذكي — نص الجلسة',
+    'وزارة العدل — المحضر الذكي',
+    'نص الجلسة',
     '',
     `عنوان الجلسة: ${meta.title}`,
     `رقم القضية: ${meta.caseNumber}`,
+    `اسم الدائرة: ${meta.circuitName}`,
+    `القاضي: ${meta.judgeName}`,
     `التاريخ: ${meta.date}`,
     `مدة الجلسة: ${meta.duration}`,
     `عدد المداخلات: ${meta.entries}`,

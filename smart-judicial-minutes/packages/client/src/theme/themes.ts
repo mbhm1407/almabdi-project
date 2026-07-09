@@ -1,22 +1,32 @@
 import {
-  teamsDarkTheme,
-  teamsHighContrastTheme,
-  teamsLightTheme,
+  createDarkTheme,
+  createHighContrastTheme,
+  createLightTheme,
   type Theme,
 } from '@fluentui/react-components';
+import { ministryGreen } from './brand';
 
 export type ThemeMode = 'light' | 'dark' | 'contrast';
 
-/** Maps the app's theme mode to the corresponding Fluent Teams theme. */
+// Build the Ministry-branded themes once from the green ramp.
+const lightTheme: Theme = createLightTheme(ministryGreen);
+const darkTheme: Theme = createDarkTheme(ministryGreen);
+const contrastTheme: Theme = createHighContrastTheme();
+
+// Nudge dark-mode brand-on-surface tokens so the green stays legible on dark.
+darkTheme.colorBrandForeground1 = ministryGreen[110];
+darkTheme.colorBrandForeground2 = ministryGreen[120];
+
+/** Maps the app's theme mode to the corresponding Ministry-branded theme. */
 export function resolveTheme(mode: ThemeMode): Theme {
   switch (mode) {
     case 'dark':
-      return teamsDarkTheme;
+      return darkTheme;
     case 'contrast':
-      return teamsHighContrastTheme;
+      return contrastTheme;
     case 'light':
     default:
-      return teamsLightTheme;
+      return lightTheme;
   }
 }
 

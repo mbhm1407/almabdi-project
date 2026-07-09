@@ -33,9 +33,9 @@ function renderRow(overrides: Partial<Parameters<typeof SegmentRow>[0]> = {}) {
 
 describe('SegmentRow', () => {
   it('shows the speaker name, judicial role and Arabic text', () => {
-    renderRow();
-    expect(screen.getByText('أحمد الحربي')).toBeTruthy();
-    expect(screen.getByText('القاضي')).toBeTruthy();
+    const { container } = renderRow();
+    expect(container.textContent).toContain('أحمد الحربي');
+    expect(container.textContent).toContain('القاضي');
     expect(screen.getByText('افتتحت الجلسة')).toBeTruthy();
   });
 

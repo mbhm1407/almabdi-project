@@ -43,7 +43,8 @@ export const segmentRepository = {
           .input('durationMs', sql.BigInt, s.durationMs)
           .input('isFinal', sql.Bit, s.isFinal).query(`
             MERGE dbo.TranscriptSegments AS target
-            USING (SELECT @id AS id) AS src ON target.id = src.id
+            USING (SELECT @id AS id) AS src
+              ON target.id = src.id AND target.sessionId = @sessionId
             WHEN MATCHED THEN UPDATE SET
               speakerId = @speakerId, speakerLabel = @speakerLabel, speakerRole = @speakerRole, text = @text,
               timestamp = @timestamp, offsetMs = @offsetMs, durationMs = @durationMs, isFinal = @isFinal

@@ -12,9 +12,11 @@ export interface Participant {
   role: JudicialRole;
 }
 
-/** Configuration captured on the setup screen before transcription starts. */
+/** Configuration captured on the opening screen before transcription starts. */
 export interface SessionSetup {
   meetingTitle: string;
   caseNumber: string;
+  circuitName: string;
+  judgeName: string;
   participants: Participant[];
 }

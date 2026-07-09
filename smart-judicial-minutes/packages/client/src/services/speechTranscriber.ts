@@ -1,13 +1,13 @@
-import {
-  AudioConfig,
+import type {
   ConversationTranscriber,
-  ResultReason,
+  ConversationTranscriptionEventArgs,
   SpeechConfig,
-  type ConversationTranscriptionEventArgs,
 } from 'microsoft-cognitiveservices-speech-sdk';
 import { v4 as uuid } from 'uuid';
 import { apiClient } from './apiClient';
 import type { CreateSegmentInput } from '@smj/shared';
+
+type SpeechSdk = typeof import('microsoft-cognitiveservices-speech-sdk');
 
 export interface RecognizedSegment extends CreateSegmentInput {
   /** Present while the utterance is still being recognized (interim). */
@@ -18,36 +18,43 @@ export interface TranscriberCallbacks {
   onSegment: (segment: RecognizedSegment) => void;
   onError: (message: string) => void;
   onStopped: () => void;
+  /** Fired when a transient disconnect triggers an automatic reconnect attempt. */
+  onReconnecting?: (attempt: number) => void;
+  /** Fired once transcription resumes after an automatic reconnect. */
+  onReconnected?: () => void;
 }
+
+const MAX_RESTART_ATTEMPTS = 5;
+const TOKEN_REFRESH_MS = 8 * 60 * 1000;
 
 /**
  * Real-time Arabic conversation transcription backed by Azure AI Speech.
  *
- * Uses {@link ConversationTranscriber} so each utterance carries a diarized
- * speaker id (e.g. "Guest-1") in addition to text, timestamp and duration.
- * The subscription key never reaches the browser — we authenticate with a
- * short-lived token minted by the backend and refresh it before it expires.
+ * The heavy Speech SDK is loaded lazily on first use so it never bloats the
+ * initial bundle. Uses {@link ConversationTranscriber} for diarized speaker ids,
+ * authenticates with a short-lived backend token (the subscription key never
+ * reaches the browser), and automatically reconnects after transient
+ * disconnects without losing the session clock.
  */
 export class SpeechTranscriber {
+  private sdk: SpeechSdk | null = null;
   private transcriber: ConversationTranscriber | null = null;
   private speechConfig: SpeechConfig | null = null;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
+  private restartTimer: ReturnType<typeof setTimeout> | null = null;
   private sessionStart = 0;
   private paused = false;
+  private stopping = false;
+  private restartAttempts = 0;
   /** Maps interim utterance ids so a final result overwrites its interim row. */
   private readonly activeBySpeaker = new Map<string, string>();
 
   constructor(private readonly callbacks: TranscriberCallbacks) {}
 
-  /**
-   * Pauses transcription. The recognizer keeps its diarization session alive but
-   * incoming results are dropped, so nothing is captured while paused.
-   */
   pause(): void {
     this.paused = true;
   }
 
-  /** Resumes capturing recognized results after a {@link pause}. */
   resume(): void {
     this.paused = false;
   }
@@ -57,30 +64,71 @@ export class SpeechTranscriber {
   }
 
   async start(): Promise<void> {
+    this.stopping = false;
+    this.restartAttempts = 0;
+    this.sessionStart = Date.now();
+    this.sdk = await import('microsoft-cognitiveservices-speech-sdk');
+    await this.buildAndStart();
+    this.refreshTimer = setInterval(() => void this.refreshToken(), TOKEN_REFRESH_MS);
+  }
+
+  /** Builds a transcriber from a fresh token and begins transcribing. */
+  private async buildAndStart(): Promise<void> {
+    const sdk = this.sdk;
+    if (!sdk) throw new Error('Speech SDK not loaded');
     const token = await apiClient.getSpeechToken();
-    this.speechConfig = SpeechConfig.fromAuthorizationToken(token.token, token.region);
+    this.speechConfig = sdk.SpeechConfig.fromAuthorizationToken(token.token, token.region);
     this.speechConfig.speechRecognitionLanguage = token.locale;
 
-    const audioConfig = AudioConfig.fromDefaultMicrophoneInput();
-    this.transcriber = new ConversationTranscriber(this.speechConfig, audioConfig);
-    this.sessionStart = Date.now();
+    const audioConfig = sdk.AudioConfig.fromDefaultMicrophoneInput();
+    const transcriber = new sdk.ConversationTranscriber(this.speechConfig, audioConfig);
+    this.transcriber = transcriber;
 
-    this.transcriber.transcribing = (_s, e) => this.handleEvent(e, false);
-    this.transcriber.transcribed = (_s, e) => this.handleEvent(e, true);
-    this.transcriber.canceled = (_s, e) => {
-      this.callbacks.onError(e.errorDetails || 'Transcription was canceled');
+    transcriber.transcribing = (_s, e) => this.handleEvent(e, false);
+    transcriber.transcribed = (_s, e) => {
+      this.restartAttempts = 0; // healthy stream resets the reconnect budget
+      this.handleEvent(e, true);
     };
-    this.transcriber.sessionStopped = () => this.callbacks.onStopped();
+    transcriber.canceled = (_s, e) => this.handleCanceled(e.errorDetails);
+    transcriber.sessionStopped = () => {
+      if (this.stopping) this.callbacks.onStopped();
+    };
 
     await new Promise<void>((resolve, reject) => {
-      this.transcriber!.startTranscribingAsync(
+      transcriber.startTranscribingAsync(
         () => resolve(),
         (err) => reject(new Error(err)),
       );
     });
+  }
 
-    // Refresh the auth token every ~8 minutes to keep the stream alive.
-    this.refreshTimer = setInterval(() => void this.refreshToken(), 8 * 60 * 1000);
+  private handleCanceled(details: string | undefined): void {
+    if (this.stopping) return;
+    if (this.restartAttempts < MAX_RESTART_ATTEMPTS) {
+      this.restartAttempts += 1;
+      this.callbacks.onReconnecting?.(this.restartAttempts);
+      const backoff = Math.min(1000 * 2 ** (this.restartAttempts - 1), 15000);
+      this.restartTimer = setTimeout(() => {
+        if (this.stopping) return;
+        void this.restart().catch((err) =>
+          this.callbacks.onError(err instanceof Error ? err.message : 'reconnect failed'),
+        );
+      }, backoff);
+    } else {
+      this.callbacks.onError(details || 'Transcription was canceled');
+    }
+  }
+
+  /** Recreates the transcriber after a disconnect, preserving the session clock. */
+  private async restart(): Promise<void> {
+    try {
+      this.transcriber?.close();
+    } catch {
+      /* already closed */
+    }
+    this.transcriber = null;
+    await this.buildAndStart();
+    this.callbacks.onReconnected?.();
   }
 
   private async refreshToken(): Promise<void> {
@@ -98,10 +146,9 @@ export class SpeechTranscriber {
     if (this.paused) return;
     const text = e.result.text?.trim();
     if (!text) return;
-    if (isFinal && e.result.reason !== ResultReason.RecognizedSpeech) return;
+    if (isFinal && e.result.reason !== this.sdk?.ResultReason.RecognizedSpeech) return;
 
     const speakerId = e.result.speakerId || 'Speaker';
-    // Reuse the interim id for this speaker so the final result replaces it.
     let id = this.activeBySpeaker.get(speakerId);
     if (!id) {
       id = uuid();
@@ -130,9 +177,14 @@ export class SpeechTranscriber {
   }
 
   async stop(): Promise<void> {
+    this.stopping = true;
     if (this.refreshTimer) {
       clearInterval(this.refreshTimer);
       this.refreshTimer = null;
+    }
+    if (this.restartTimer) {
+      clearTimeout(this.restartTimer);
+      this.restartTimer = null;
     }
     const transcriber = this.transcriber;
     if (!transcriber) return;
@@ -144,6 +196,7 @@ export class SpeechTranscriber {
     });
     transcriber.close();
     this.transcriber = null;
+    this.sessionStart = 0;
     this.activeBySpeaker.clear();
   }
 }

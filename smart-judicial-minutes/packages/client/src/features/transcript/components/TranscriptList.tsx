@@ -1,7 +1,8 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Text, makeStyles, tokens } from '@fluentui/react-components';
 import type { JudicialRole, TranscriptSegment } from '@smj/shared';
+import { AR } from '../../../strings';
 import { SegmentRow } from './SegmentRow';
 import type { Participant } from '../types';
 
@@ -28,7 +29,10 @@ interface TranscriptListProps {
   matchIds: string[];
   activeMatchId: string | null;
   autoScroll: boolean;
-  hasStarted: boolean;
+  /** Segment to scroll into view when a bookmark is opened. */
+  focusSegmentId: string | null;
+  /** Bumped each time a bookmark jump is requested, to force a re-scroll. */
+  focusNonce: number;
   onAssign: (speakerId: string, label: string, role: JudicialRole) => void;
 }
 
@@ -44,12 +48,13 @@ export function TranscriptList({
   matchIds,
   activeMatchId,
   autoScroll,
-  hasStarted,
+  focusSegmentId,
+  focusNonce,
   onAssign,
 }: TranscriptListProps) {
   const styles = useStyles();
   const scrollRef = useRef<HTMLDivElement>(null);
-  const matchIdSet = new Set(matchIds);
+  const matchIdSet = useMemo(() => new Set(matchIds), [matchIds]);
 
   const virtualizer = useVirtualizer({
     count: segments.length,
@@ -73,14 +78,18 @@ export function TranscriptList({
     if (index >= 0) virtualizer.scrollToIndex(index, { align: 'center' });
   }, [activeMatchId, segments, virtualizer]);
 
+  // Jump to a bookmarked position (re-runs when focusNonce changes).
+  useLayoutEffect(() => {
+    if (!focusSegmentId) return;
+    const index = segments.findIndex((s) => s.id === focusSegmentId);
+    if (index >= 0) virtualizer.scrollToIndex(index, { align: 'center' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusNonce]);
+
   if (segments.length === 0) {
     return (
       <div className={styles.empty}>
-        <Text size={400}>
-          {hasStarted
-            ? 'في انتظار الكلام… سيظهر النص العربي هنا فور بدء المتحدثين.'
-            : 'اضغط «بدء النسخ المباشر» لبدء تحويل الكلام العربي إلى نص فوري أثناء الجلسة.'}
-        </Text>
+        <Text size={400}>{AR.waitingForSpeech}</Text>
       </div>
     );
   }

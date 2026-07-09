@@ -11,11 +11,11 @@ import {
 import {
   WeatherMoonRegular,
   WeatherSunnyRegular,
-  GavelRegular,
   PersonVoiceRegular,
   TimerRegular,
 } from '@fluentui/react-icons';
 import { formatDuration, judicialRoleLabel } from '@smj/shared';
+import { AR } from '../../../strings';
 import type { ThemeMode } from '../../../theme/themes';
 import { StatusBadge } from './StatusBadge';
 import type { SpeakerAssignment, TranscriptionStatus } from '../hooks/useTranscription';
@@ -29,28 +29,14 @@ const useStyles = makeStyles({
     paddingInline: tokens.spacingHorizontalL,
     paddingBlock: tokens.spacingVerticalM,
     borderBottom: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke2}`,
-    backgroundColor: tokens.colorNeutralBackground1,
+    backgroundColor: tokens.colorBrandBackground2,
     flexWrap: 'wrap',
   },
   left: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalM, minWidth: 0 },
-  brandIcon: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '40px',
-    height: '40px',
-    borderRadius: tokens.borderRadiusMedium,
-    backgroundColor: tokens.colorBrandBackground2,
-    color: tokens.colorBrandForeground2,
-    flexShrink: 0,
-  },
+  emblem: { fontSize: '28px', lineHeight: 1, flexShrink: 0 },
   info: { display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 },
-  title: {
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis',
-    maxWidth: '44ch',
-  },
+  brandRow: { display: 'flex', alignItems: 'baseline', gap: tokens.spacingHorizontalS },
+  ministry: { color: tokens.colorNeutralForeground2 },
   metaRow: {
     display: 'flex',
     alignItems: 'center',
@@ -74,18 +60,18 @@ const useStyles = makeStyles({
     display: 'flex',
     alignItems: 'center',
     gap: tokens.spacingHorizontalXS,
-    maxWidth: '28ch',
+    maxWidth: '26ch',
     overflow: 'hidden',
     whiteSpace: 'nowrap',
     textOverflow: 'ellipsis',
+    fontWeight: tokens.fontWeightSemibold,
   },
   themeToggle: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalXS },
 });
 
 interface MeetingHeaderProps {
-  meetingTitle: string;
   caseNumber: string | null;
-  clerkName: string;
+  circuitName: string | null;
   status: TranscriptionStatus;
   elapsedMs: number;
   currentSpeaker: SpeakerAssignment | null;
@@ -100,11 +86,10 @@ function speakerText(speaker: SpeakerAssignment): string {
   return speaker.label;
 }
 
-/** App header: hearing identity, live status, current speaker, elapsed time. */
+/** Official courtroom header: ministry identity, hearing meta, live state. */
 export function MeetingHeader({
-  meetingTitle,
   caseNumber,
-  clerkName,
+  circuitName,
   status,
   elapsedMs,
   currentSpeaker,
@@ -117,25 +102,32 @@ export function MeetingHeader({
   return (
     <header className={styles.header}>
       <div className={styles.left}>
-        <span className={styles.brandIcon} aria-hidden>
-          <GavelRegular fontSize={22} />
+        <span className={styles.emblem} role="img" aria-label="ميزان العدل">
+          ⚖️
         </span>
         <div className={styles.info}>
-          <Subtitle2 className={styles.title}>{meetingTitle}</Subtitle2>
+          <div className={styles.brandRow}>
+            <Subtitle2>{AR.appName}</Subtitle2>
+            <Caption1 className={styles.ministry}>{AR.ministry}</Caption1>
+          </div>
           <div className={styles.metaRow}>
             {caseNumber && (
               <Badge appearance="tint" color="brand" size="small">
-                رقم القضية: {caseNumber}
+                {AR.caseNumber}: {caseNumber}
               </Badge>
             )}
-            <Caption1>الكاتب: {clerkName}</Caption1>
+            {circuitName && (
+              <Badge appearance="outline" color="brand" size="small">
+                {AR.circuit}: {circuitName}
+              </Badge>
+            )}
           </div>
         </div>
       </div>
 
       <div className={styles.right}>
         {isLive && currentSpeaker && (
-          <Tooltip content="المتحدث الحالي" relationship="label">
+          <Tooltip content={AR.currentSpeaker} relationship="label">
             <Body1 className={styles.speaker}>
               <PersonVoiceRegular />
               {speakerText(currentSpeaker)}
@@ -143,20 +135,22 @@ export function MeetingHeader({
           </Tooltip>
         )}
         {isLive && (
-          <span className={styles.metric} aria-label="مدة الجلسة">
+          <span className={styles.metric} aria-label={AR.sessionDuration}>
             <TimerRegular />
             {formatDuration(elapsedMs)}
           </span>
         )}
         <StatusBadge status={status} />
-        <div className={styles.themeToggle}>
-          {themeMode === 'dark' ? <WeatherMoonRegular /> : <WeatherSunnyRegular />}
-          <Switch
-            checked={themeMode === 'dark'}
-            onChange={onToggleDark}
-            aria-label="الوضع الداكن"
-          />
-        </div>
+        <Tooltip content={AR.darkMode} relationship="label">
+          <div className={styles.themeToggle}>
+            {themeMode === 'dark' ? <WeatherMoonRegular /> : <WeatherSunnyRegular />}
+            <Switch
+              checked={themeMode === 'dark'}
+              onChange={onToggleDark}
+              aria-label={AR.darkMode}
+            />
+          </div>
+        </Tooltip>
       </div>
     </header>
   );

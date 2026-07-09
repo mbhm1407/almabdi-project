@@ -7,6 +7,8 @@ const session: TranscriptionSession = {
   meetingId: 'meeting-1',
   meetingTitle: 'جلسة تجريبية',
   caseNumber: '٤٣٥/٢/ق',
+  circuitName: 'الدائرة الحقوقية الأولى',
+  judgeName: 'أحمد الحربي',
   tenantId: 'tenant-1',
   createdBy: 'user-1',
   status: 'stopped',
@@ -50,7 +52,10 @@ describe('exportService', () => {
     expect(result.contentType).toContain('text/plain');
     expect(result.filename).toMatch(/\.txt$/);
     // Header metadata.
+    expect(text).toContain('وزارة العدل');
     expect(text).toContain('رقم القضية: ٤٣٥/٢/ق');
+    expect(text).toContain('اسم الدائرة: الدائرة الحقوقية الأولى');
+    expect(text).toContain('القاضي: أحمد الحربي');
     expect(text).toContain('مدة الجلسة: 00:30:00');
     // Speaker name + judicial role.
     expect(text).toContain('القاضي — أحمد الحربي');

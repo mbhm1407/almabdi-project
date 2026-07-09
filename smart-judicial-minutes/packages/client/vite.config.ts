@@ -24,6 +24,17 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: true,
     target: 'es2022',
+    // Split large vendors into cacheable chunks. The Azure Speech SDK is loaded
+    // lazily (dynamic import) so it never enters the initial payload.
+    chunkSizeWarningLimit: 900,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-fluent': ['@fluentui/react-components', '@fluentui/react-icons'],
+          'vendor-teams': ['@microsoft/teams-js'],
+        },
+      },
+    },
   },
   test: {
     environment: 'jsdom',

@@ -48,11 +48,16 @@ describe('sessionService.start', () => {
       meetingId: 'm-1',
       meetingTitle: 'جلسة',
       caseNumber: '  ٤٣٥/٢/ق  ',
+      circuitName: '  الدائرة الأولى  ',
+      judgeName: '   ',
     });
     expect(session.status).toBe('active');
     expect(session.tenantId).toBe('tenant-1');
     expect(session.createdBy).toBe('clerk-1');
     expect(session.caseNumber).toBe('٤٣٥/٢/ق');
+    expect(session.circuitName).toBe('الدائرة الأولى');
+    // Whitespace-only optional fields normalize to null.
+    expect(session.judgeName).toBeNull();
     expect(repo.create).toHaveBeenCalledOnce();
   });
 
@@ -80,6 +85,8 @@ describe('sessionService.stop', () => {
       meetingId: 'm-1',
       meetingTitle: 'جلسة',
       caseNumber: null,
+      circuitName: null,
+      judgeName: null,
       tenantId: 'tenant-1',
       createdBy: 'clerk-1',
       status: 'active',

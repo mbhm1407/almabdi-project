@@ -63,6 +63,13 @@ describe('authentication guard', () => {
       .set('Authorization', 'Basic abc');
     expect(res.status).toBe(401);
   });
+
+  it('rejects nested bookmark routes without a bearer token', async () => {
+    const res = await request(app).get(
+      '/api/sessions/11111111-1111-1111-1111-111111111111/bookmarks',
+    );
+    expect(res.status).toBe(401);
+  });
 });
 
 describe('not found', () => {

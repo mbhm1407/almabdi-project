@@ -2,11 +2,14 @@
 FROM node:20-alpine AS build
 WORKDIR /app
 
+# Copy every workspace manifest so npm can resolve the workspace graph.
 COPY package.json package-lock.json* ./
 COPY tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/
+COPY packages/server/package.json packages/server/
 COPY packages/client/package.json packages/client/
-RUN npm install --workspaces --include-workspace-root
+RUN npm install --include-workspace-root \
+  --workspace @smj/shared --workspace @smj/client
 
 COPY packages/shared packages/shared
 COPY packages/client packages/client

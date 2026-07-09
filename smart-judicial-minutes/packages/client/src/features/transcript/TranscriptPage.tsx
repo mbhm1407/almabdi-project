@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { makeStyles } from '@fluentui/react-components';
-import { judicialRoleLabel } from '@smj/shared';
+import { judicialRoleLabel, sessionDurationMs, type Bookmark } from '@smj/shared';
 import type { TeamsMeetingContext } from '../../teams/teamsClient';
 import type { ThemeMode } from '../../theme/themes';
 import { formatClock } from '../../services/format';
 import { toFriendlyError } from '../../services/errorMessages';
+import { printTranscript } from '../../services/print';
 import { useTranscription } from './hooks/useTranscription';
 import { MeetingHeader } from './components/MeetingHeader';
 import { TranscriptToolbar } from './components/TranscriptToolbar';
 import { TranscriptList } from './components/TranscriptList';
-import { SessionSetup } from './components/SessionSetup';
+import { OpeningScreen } from './components/OpeningScreen';
 import { ErrorDialog } from './components/ErrorDialog';
 import { RecordingsPanel } from './components/RecordingsPanel';
-import { cycleIndex, matchingSegmentIds } from './search';
-import type { Participant } from './types';
+import { BookmarksPanel } from './components/BookmarksPanel';
+import { StatisticsPanel } from './components/StatisticsPanel';
+import { cycleIndex, matchingSegmentIds, nearestSegmentIdByOffset } from './search';
+import { computeStatistics } from './stats';
+import type { Participant, SessionSetup } from './types';
 
 const useStyles = makeStyles({
   page: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 },
@@ -26,10 +30,17 @@ interface TranscriptPageProps {
   onToggleDark: () => void;
 }
 
+interface Jump {
+  segmentId: string | null;
+  seekMs: number | null;
+  nonce: number;
+}
+
 /**
- * The single hearing screen. Before starting it shows the setup (case number +
- * roster); during and after the hearing it shows the distraction-free live
- * transcript with status, search, export and recordings.
+ * The single hearing screen. Before starting it shows the official opening
+ * (case number, circuit, judge, clerk); during and after the hearing it shows
+ * the distraction-free courtroom transcript with statistics, bookmarks, search,
+ * export, print and recordings.
  */
 export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptPageProps) {
   const styles = useStyles();
@@ -40,6 +51,7 @@ export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptP
     currentSpeaker,
     elapsedMs,
     recording,
+    bookmarks,
     error,
     isSaving,
     start,
@@ -47,6 +59,8 @@ export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptP
     resume,
     stop,
     assignSpeaker,
+    addBookmark,
+    removeBookmark,
     clearError,
   } = useTranscription(context);
 
@@ -55,8 +69,26 @@ export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptP
   const [activeIndex, setActiveIndex] = useState(0);
   const [localError, setLocalError] = useState<unknown>(null);
   const [recordingsOpen, setRecordingsOpen] = useState(false);
+  const [bookmarksOpen, setBookmarksOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [jump, setJump] = useState<Jump>({ segmentId: null, seekMs: null, nonce: 0 });
+  const [online, setOnline] = useState(() =>
+    typeof navigator === 'undefined' ? true : navigator.onLine,
+  );
+
+  useEffect(() => {
+    const goOnline = () => setOnline(true);
+    const goOffline = () => setOnline(false);
+    window.addEventListener('online', goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online', goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
 
   const matchIds = useMemo(() => matchingSegmentIds(segments, searchTerm), [segments, searchTerm]);
+  const stats = useMemo(() => computeStatistics(segments), [segments]);
 
   useEffect(() => {
     setActiveIndex(0);
@@ -84,14 +116,12 @@ export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptP
     clearError();
   };
 
-  const handleStart = (setup: {
-    meetingTitle: string;
-    caseNumber: string;
-    participants: Participant[];
-  }) => {
+  const handleStart = (setup: SessionSetup) => {
     setParticipants(setup.participants);
     void start(setup);
   };
+
+  const hasRecording = recording !== null || Boolean(session?.recordingBlobName);
 
   const copyAll = useCallback(() => {
     const text = segments
@@ -107,14 +137,48 @@ export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptP
     void navigator.clipboard?.writeText(text).catch(() => undefined);
   }, [segments]);
 
-  const hasRecording = recording !== null || Boolean(session?.recordingBlobName);
+  const handlePrint = useCallback(() => {
+    if (!session) return;
+    printTranscript(
+      {
+        caseNumber: session.caseNumber,
+        circuitName: session.circuitName,
+        judgeName: session.judgeName,
+        date: new Date(session.startedAt).toLocaleDateString('ar-SA', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }),
+        durationMs: sessionDurationMs(session),
+      },
+      segments,
+    );
+  }, [session, segments]);
+
+  const handleJump = useCallback(
+    (bookmark: Bookmark) => {
+      const segmentId = nearestSegmentIdByOffset(segments, bookmark.offsetMs);
+      setJump((prev) => ({
+        segmentId,
+        seekMs: bookmark.offsetMs,
+        nonce: prev.nonce + 1,
+      }));
+      setBookmarksOpen(false);
+      if (hasRecording) setRecordingsOpen(true);
+    },
+    [segments, hasRecording],
+  );
+
+  const seekRequest = useMemo(
+    () => (jump.seekMs != null ? { ms: jump.seekMs, nonce: jump.nonce } : null),
+    [jump.seekMs, jump.nonce],
+  );
 
   return (
     <div className={styles.page}>
       <MeetingHeader
-        meetingTitle={session?.meetingTitle ?? context.meetingTitle}
         caseNumber={session?.caseNumber ?? null}
-        clerkName={context.userName}
+        circuitName={session?.circuitName ?? null}
         status={status}
         elapsedMs={elapsedMs}
         currentSpeaker={currentSpeaker}
@@ -123,7 +187,7 @@ export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptP
       />
 
       {!session ? (
-        <SessionSetup
+        <OpeningScreen
           defaultTitle={context.meetingTitle}
           clerkName={context.userName}
           busy={status === 'starting'}
@@ -137,6 +201,7 @@ export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptP
             isSaving={isSaving}
             hasSegments={segments.some((s) => s.isFinal)}
             hasRecording={hasRecording}
+            bookmarkCount={bookmarks.length}
             searchTerm={searchTerm}
             matchCount={matchIds.length}
             activeIndex={clampedIndex}
@@ -146,8 +211,12 @@ export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptP
             onPause={pause}
             onResume={resume}
             onStop={() => void stop()}
+            onAddBookmark={() => setBookmarksOpen(true)}
+            onOpenBookmarks={() => setBookmarksOpen(true)}
+            onOpenStatistics={() => setStatsOpen(true)}
             onCopyAll={copyAll}
             onOpenRecordings={() => setRecordingsOpen(true)}
+            onPrint={handlePrint}
             onError={setLocalError}
           />
           <div className={styles.body}>
@@ -158,7 +227,8 @@ export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptP
               matchIds={matchIds}
               activeMatchId={activeMatchId}
               autoScroll={status === 'active'}
-              hasStarted
+              focusSegmentId={jump.segmentId}
+              focusNonce={jump.nonce}
               onAssign={assignSpeaker}
             />
           </div>
@@ -170,7 +240,25 @@ export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptP
         open={recordingsOpen}
         sessionId={session?.id ?? null}
         recording={recording}
+        seekRequest={seekRequest}
         onClose={() => setRecordingsOpen(false)}
+      />
+      <BookmarksPanel
+        open={bookmarksOpen}
+        bookmarks={bookmarks}
+        canAdd={status === 'active' || status === 'paused'}
+        onClose={() => setBookmarksOpen(false)}
+        onAdd={(label) => void addBookmark(label)}
+        onRemove={(id) => void removeBookmark(id)}
+        onJump={handleJump}
+      />
+      <StatisticsPanel
+        open={statsOpen}
+        elapsedMs={elapsedMs}
+        stats={stats}
+        online={online}
+        status={status}
+        onClose={() => setStatsOpen(false)}
       />
     </div>
   );

@@ -48,3 +48,21 @@ export function cycleIndex(current: number, delta: number, length: number): numb
   if (length === 0) return -1;
   return (((current + delta) % length) + length) % length;
 }
+
+/**
+ * Finds the id of the segment a bookmark should jump to: the last segment that
+ * started at or before the target offset, or the first segment if none precede
+ * it. Returns null for an empty transcript.
+ */
+export function nearestSegmentIdByOffset(
+  segments: TranscriptSegment[],
+  offsetMs: number,
+): string | null {
+  if (segments.length === 0) return null;
+  let candidate = segments[0]!;
+  for (const segment of segments) {
+    if (segment.offsetMs <= offsetMs) candidate = segment;
+    else break;
+  }
+  return candidate.id;
+}

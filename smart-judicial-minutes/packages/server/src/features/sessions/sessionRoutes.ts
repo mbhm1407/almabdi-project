@@ -9,6 +9,7 @@ import { sessionService } from './sessionService.js';
 import { auditService } from '../audit/auditService.js';
 import { transcriptRouter } from '../transcripts/transcriptRoutes.js';
 import { recordingRouter } from '../recordings/recordingRoutes.js';
+import { bookmarkRouter } from '../bookmarks/bookmarkRoutes.js';
 
 const idParamSchema = z.object({ sessionId: z.string().uuid() });
 const listQuerySchema = z.object({ meetingId: z.string().min(1).max(256) });
@@ -66,6 +67,7 @@ sessionRouter.post(
   }),
 );
 
-// Nested transcript + recording routes.
+// Nested transcript + recording + bookmark routes.
 sessionRouter.use('/:sessionId', transcriptRouter);
 sessionRouter.use('/:sessionId/recording', recordingRouter);
+sessionRouter.use('/:sessionId/bookmarks', bookmarkRouter);

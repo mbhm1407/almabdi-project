@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Button,
   Dialog,
@@ -32,6 +32,8 @@ interface RecordingsPanelProps {
   open: boolean;
   sessionId: string | null;
   recording: RecordingInfo | null;
+  /** Requested playback position in ms; nonce forces re-seek on repeat jumps. */
+  seekRequest: { ms: number; nonce: number } | null;
   onClose: () => void;
 }
 
@@ -40,11 +42,35 @@ interface RecordingsPanelProps {
  * recording duration, size and a download action. The audio streams from a
  * short-lived SAS URL minted by the backend.
  */
-export function RecordingsPanel({ open, sessionId, recording, onClose }: RecordingsPanelProps) {
+export function RecordingsPanel({
+  open,
+  sessionId,
+  recording,
+  seekRequest,
+  onClose,
+}: RecordingsPanelProps) {
   const styles = useStyles();
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+
+  // Seek the player when a bookmark jump requests a position.
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio || !seekRequest) return;
+    const target = seekRequest.ms / 1000;
+    const applySeek = () => {
+      audio.currentTime = Math.min(
+        target,
+        Number.isFinite(audio.duration) ? audio.duration : target,
+      );
+      void audio.play().catch(() => undefined);
+    };
+    if (audio.readyState >= 1) applySeek();
+    else audio.addEventListener('loadedmetadata', applySeek, { once: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seekRequest?.nonce, url]);
 
   useEffect(() => {
     if (!open || !sessionId) return;
@@ -95,7 +121,13 @@ export function RecordingsPanel({ open, sessionId, recording, onClose }: Recordi
               {errorMsg && <Text>{errorMsg}</Text>}
               {url && !loading && (
                 <>
-                  <audio className={styles.player} controls src={url} preload="metadata" />
+                  <audio
+                    ref={audioRef}
+                    className={styles.player}
+                    controls
+                    src={url}
+                    preload="metadata"
+                  />
                   <div className={styles.actions}>
                     <Button
                       as="a"

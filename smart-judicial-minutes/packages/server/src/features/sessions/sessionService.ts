@@ -4,6 +4,12 @@ import { NotFoundError } from '../../lib/errors.js';
 import { sessionRepository } from './sessionRepository.js';
 import type { AuthenticatedUser, CreateSessionInput, TranscriptionSession } from '@smj/shared';
 
+/** Trims an optional string field, mapping empty/absent values to null. */
+function normalizeOptional(value: string | null | undefined): string | null {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
 /**
  * Session lifecycle: a session is opened when the clerk presses "Start Live
  * Transcript" and closed when they press "Stop". All access is tenant-scoped.
@@ -14,7 +20,9 @@ export const sessionService = {
       id: randomUUID(),
       meetingId: input.meetingId,
       meetingTitle: input.meetingTitle,
-      caseNumber: input.caseNumber?.trim() ? input.caseNumber.trim() : null,
+      caseNumber: normalizeOptional(input.caseNumber),
+      circuitName: normalizeOptional(input.circuitName),
+      judgeName: normalizeOptional(input.judgeName),
       tenantId: user.tenantId,
       createdBy: user.id,
       status: 'active',
