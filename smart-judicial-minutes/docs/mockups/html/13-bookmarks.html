@@ -1,0 +1,389 @@
+<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<style>
+  
+  *{box-sizing:border-box;}
+  :root{--nb1:#ffffff;--nb2:#fafafa;--nb3:#f5f5f5;--nb1s:#ebebeb;--nb1h:#f5f5f5;--nf1:#242424;--nf2:#424242;--nf3:#616161;--nf4:#707070;--stroke1:#d1d1d1;--stroke2:#e0e0e0;--brandBg:#217C46;--brandBgHover:#1B6C3C;--brandBg2:#E5F2E8;--brandFg1:#217C46;--brandStroke1:#217C46;--tintBrandBg:#E5F2E8;--tintBrandFg:#1B6C3C;--danger:#c50f1f;--dangerFg:#ffffff;--dangerTintBg:#fdf3f4;--dangerTintFg:#b10e1c;--warnTintBg:#fff9f5;--warnTintFg:#bc4b09;--warnBar:#fff4ce;--warnBarBorder:#f2d999;--successTintBg:#e7f2da;--successTintFg:#0e700e;--infoTintBg:#eef4fc;--infoTintFg:#0f6cbd;--yellow2:#fef7b2;--dialogShadow:0 8px 16px rgba(0,0,0,.14), 0 0 2px rgba(0,0,0,.12);--cardShadow:0 2px 4px rgba(0,0,0,.14), 0 0 2px rgba(0,0,0,.12);}
+  .app{font-family:'Noto Sans Arabic','Segoe UI','Noto Color Emoji',Tahoma,Arial,sans-serif;color:var(--nf1);background:var(--nb1);height:100%;display:flex;flex-direction:column;direction:rtl;}
+  .app *{font-family:'Noto Sans Arabic','Segoe UI','Noto Color Emoji',Tahoma,Arial,sans-serif;}
+  .emoji{font-family:'Noto Color Emoji','Noto Sans Arabic','Segoe UI','Noto Color Emoji',Tahoma,Arial,sans-serif;}
+
+  /* ---- Header (MeetingHeader) : bg colorBrandBackground2 ---- */
+  .hdr{display:flex;align-items:center;justify-content:space-between;gap:12px;
+       padding:12px 16px;border-bottom:1px solid var(--stroke2);background:var(--brandBg2);flex-wrap:wrap;}
+  .hdr-l{display:flex;align-items:center;gap:12px;min-width:0;}
+  .hdr-emblem{font-size:28px;line-height:1;}
+  .hdr-info{display:flex;flex-direction:column;gap:2px;min-width:0;}
+  .hdr-brandrow{display:flex;align-items:baseline;gap:8px;}
+  .hdr-app{font-size:16px;font-weight:600;color:var(--nf1);}
+  .hdr-min{font-size:12px;color:var(--nf2);}
+  .hdr-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px;}
+  .hdr-r{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .hdr-speaker{display:flex;align-items:center;gap:4px;font-size:14px;font-weight:600;color:var(--nf1);max-width:26ch;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+  .hdr-metric{display:flex;align-items:center;gap:4px;color:var(--nf2);font-variant-numeric:tabular-nums;font-size:14px;}
+  .theme-toggle{display:flex;align-items:center;gap:6px;}
+
+  /* ---- Badges ---- */
+  .badge{display:inline-flex;align-items:center;gap:4px;border-radius:999px;font-weight:600;white-space:nowrap;}
+  .badge.sm{height:16px;padding:0 6px;font-size:10px;}
+  .badge.lg{height:24px;padding:0 10px;font-size:12px;}
+  .badge .ic{width:12px;height:12px;}
+  .badge .ic svg{width:12px;height:12px;}
+  .badge.tint-brand{background:var(--tintBrandBg);color:var(--tintBrandFg);}
+  .badge.outline-brand{background:transparent;color:var(--brandFg1);border:1px solid var(--brandStroke1);}
+  .badge.filled-danger{background:var(--danger);color:var(--dangerFg);}
+  .badge.tint-danger{background:var(--dangerTintBg);color:var(--dangerTintFg);}
+  .badge.tint-warning{background:var(--warnTintBg);color:var(--warnTintFg);}
+  .badge.tint-success{background:var(--successTintBg);color:var(--successTintFg);}
+  .badge.tint-info{background:var(--infoTintBg);color:var(--infoTintFg);}
+  .dot{width:8px;height:8px;border-radius:50%;background:currentColor;display:inline-block;}
+  @keyframes pulse{0%{opacity:1}50%{opacity:.45}100%{opacity:1}}
+  .pulse .dot{animation:pulse 1.4s infinite;}
+
+  /* ---- Buttons ---- */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;padding:0 12px;
+       border-radius:4px;font-size:14px;font-weight:600;border:1px solid transparent;cursor:default;white-space:nowrap;}
+  .btn .ic,.btn .ic svg{width:20px;height:20px;}
+  .btn.primary{background:var(--brandBg);color:#fff;}
+  .btn.secondary{background:var(--nb1);color:var(--nf1);border-color:var(--stroke1);}
+  .btn.subtle{background:transparent;color:var(--nf2);}
+  .btn.subtle:hover{background:var(--nb1h);}
+  .btn.transparent{background:transparent;color:var(--nf2);}
+  .btn.icon{width:32px;padding:0;}
+  .btn.small{height:24px;padding:0 8px;font-size:12px;}
+  .btn.small.icon{width:24px;padding:0;}
+  .btn.big{height:64px;font-size:20px;border-radius:6px;}
+  .btn[disabled]{opacity:.45;}
+
+  /* ---- Fields / inputs ---- */
+  .field{display:flex;flex-direction:column;gap:4px;}
+  .field > label{font-size:14px;font-weight:600;color:var(--nf1);}
+  .input{display:flex;align-items:center;gap:6px;height:40px;padding:0 10px;border-radius:4px;
+         background:var(--nb1);border:1px solid var(--stroke1);border-bottom:1px solid var(--brandBg);
+         font-size:16px;color:var(--nf1);}
+  .input.md{height:32px;font-size:14px;}
+  .input .ph{color:var(--nf3);}
+  .input .ic,.input .ic svg{width:20px;height:20px;color:var(--nf3);}
+  .input.ro{background:var(--nb3);border-bottom-color:var(--stroke1);color:var(--nf2);}
+
+  /* ---- Switch ---- */
+  .switch{width:40px;height:20px;border-radius:999px;background:var(--brandBg);position:relative;border:1px solid transparent;}
+  .switch.off{background:transparent;border-color:var(--nf3);}
+  .switch::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;}
+  .switch.off::after{left:auto;right:2px;background:var(--nf3);}
+
+  /* ---- Toolbar (TranscriptToolbar) ---- */
+  .tbar{display:flex;align-items:center;gap:8px;padding:8px 16px;border-bottom:1px solid var(--stroke2);
+        background:var(--nb1);flex-wrap:wrap;}
+  .tbar .divider{width:1px;align-self:stretch;background:var(--stroke2);margin:0 2px;}
+  .grow{flex:1;display:flex;align-items:center;min-width:200px;}
+  .saving{display:flex;align-items:center;gap:6px;color:var(--nf3);font-size:12px;white-space:nowrap;}
+
+  /* search bar */
+  .searchwrap{display:flex;align-items:center;gap:4px;flex:1;min-width:220px;}
+  .searchwrap .input{flex:1;}
+  .count{color:var(--nf3);white-space:nowrap;font-variant-numeric:tabular-nums;min-width:52px;text-align:center;font-size:14px;}
+
+  /* ---- Transcript list + SegmentRow ---- */
+  .tlist{flex:1;overflow:hidden;background:var(--nb1);}
+  .seg{display:flex;flex-direction:column;gap:4px;padding:16px;border-bottom:1px solid var(--stroke2);}
+  .seg.interim{opacity:.6;}
+  .seg.active{background:var(--nb1s);border-inline-start:3px solid var(--brandStroke1);}
+  .seg-head{display:flex;align-items:center;gap:4px;}
+  .seg-speaker{font-size:16px;font-weight:700;color:var(--brandFg1);}
+  .seg-role{color:var(--nf2);font-weight:400;}
+  .seg-spacer{flex:1;}
+  .seg-time{color:var(--nf3);font-variant-numeric:tabular-nums;font-size:12px;}
+  .seg-text{font-size:20px;line-height:32px;color:var(--nf1);white-space:pre-wrap;word-break:break-word;margin-top:2px;}
+  mark{background:var(--yellow2);color:var(--nf1);border-radius:2px;padding:0 1px;}
+
+  /* ---- Opening screen ---- */
+  .open-scroll{flex:1;overflow:hidden;display:flex;justify-content:center;align-items:flex-start;background:var(--nb2);}
+  .open-card{width:100%;max-width:560px;margin:32px 16px;padding:24px 32px;background:var(--nb1);
+             border:1px solid var(--stroke2);border-radius:8px;box-shadow:var(--cardShadow);
+             display:flex;flex-direction:column;gap:16px;}
+  .open-brand{display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;}
+  .open-emblem{font-size:48px;line-height:1;}
+  .title1{font-size:32px;font-weight:600;line-height:40px;color:var(--nf1);}
+  .open-min{color:var(--nf2);letter-spacing:.5px;font-size:14px;}
+  .open-fields{display:flex;flex-direction:column;gap:12px;}
+  .open-row{display:flex;gap:12px;}
+  .open-row .field{flex:1;}
+  .credit{color:var(--nf4);text-align:center;font-size:10px;margin-top:8px;}
+
+  /* ---- Message bar (reconnect/offline) ---- */
+  .msgbar{display:flex;align-items:center;gap:8px;margin:8px 16px 0;padding:8px 12px;border-radius:4px;
+          background:var(--warnBar);border:1px solid var(--warnBarBorder);color:var(--nf1);font-size:14px;}
+  .msgbar .ic svg{width:20px;height:20px;color:var(--warnTintFg);}
+
+  /* ---- Dialog ---- */
+  .scrim{position:absolute;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;}
+  .dialog{background:var(--nb1);border-radius:8px;box-shadow:var(--dialogShadow);padding:24px;max-width:600px;
+          width:calc(100% - 48px);max-height:calc(100% - 48px);overflow:auto;direction:rtl;}
+  .dtitle{font-size:20px;font-weight:600;color:var(--nf1);margin-bottom:12px;display:flex;align-items:center;gap:8px;}
+  .dbody{display:flex;flex-direction:column;gap:12px;color:var(--nf1);font-size:14px;line-height:20px;}
+  .dactions{display:flex;justify-content:flex-end;gap:8px;margin-top:4px;}
+
+  /* about rows */
+  .center{text-align:center;}
+  .arows{display:flex;flex-direction:column;gap:4px;}
+  .arow{display:flex;justify-content:space-between;gap:12px;}
+  .arow .k{color:var(--nf3);}
+  .arow .val{font-weight:600;}
+  a{color:var(--brandFg1);text-decoration:none;}
+
+  /* statistics tiles */
+  .stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
+  .tile{display:flex;flex-direction:column;gap:2px;padding:12px;border-radius:4px;background:var(--nb2);border:1px solid var(--stroke2);}
+  .tile .lbl{color:var(--nf3);font-size:12px;}
+  .tile .val{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;}
+  .status-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+
+  /* menu (export) */
+  .menu{position:absolute;background:var(--nb1);border:1px solid var(--stroke2);border-radius:4px;box-shadow:var(--dialogShadow);padding:4px;min-width:180px;}
+  .menu .mi{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:4px;font-size:14px;color:var(--nf1);}
+  .menu .mi:hover{background:var(--nb1h);}
+
+  /* recordings */
+  .rec-meta{display:flex;gap:24px;color:var(--nf2);}
+  .rec-meta .mi{display:flex;flex-direction:column;gap:2px;}
+  .rec-meta .mv{font-weight:600;color:var(--nf1);}
+  .audio{width:100%;height:44px;border-radius:999px;background:var(--nb2);border:1px solid var(--stroke2);
+         display:flex;align-items:center;gap:10px;padding:0 12px;color:var(--nf2);}
+  .audio .bar{flex:1;height:4px;border-radius:2px;background:var(--stroke1);position:relative;}
+  .audio .bar::before{content:'';position:absolute;inset:0 55% 0 0;background:var(--brandBg);border-radius:2px;}
+  .audio .bar::after{content:'';position:absolute;top:50%;left:55%;transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:var(--brandBg);}
+
+  /* bookmarks list */
+  .bk-add{display:flex;gap:8px;}
+  .bk-list{display:flex;flex-direction:column;gap:6px;}
+  .bk-item{display:flex;align-items:center;gap:8px;padding:8px;border-radius:4px;border:1px solid var(--stroke2);}
+  .bk-jump{flex:1;display:flex;align-items:center;gap:8px;justify-content:flex-start;}
+  .bk-time{color:var(--brandFg1);font-variant-numeric:tabular-nums;font-weight:600;}
+  .muted{color:var(--nf3);}
+  
+  
+  .stage{flex:1;display:flex;flex-direction:column;background:#0b0b0c;color:#eaeaea;min-width:0;}
+  .stage-top{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;background:#161617;border-bottom:1px solid #232324;}
+  .stage-title{font-weight:600;font-size:15px;}
+  .stage-top-r{display:flex;align-items:center;gap:14px;}
+  .recpill{color:#ff5c6c;font-weight:600;font-size:13px;font-variant-numeric:tabular-nums;}
+  .pcount{display:flex;align-items:center;gap:5px;color:#c9c9c9;font-size:13px;}
+  .pcount .ic svg{width:18px;height:18px;}
+  .stage-grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);grid-auto-rows:1fr;gap:14px;padding:20px;}
+  .mtile{position:relative;border-radius:12px;background:linear-gradient(155deg,#242427,#1a1a1c);display:flex;align-items:center;justify-content:center;border:2px solid transparent;overflow:hidden;}
+  .mtile.speaking{border-color:#4AAA6C;box-shadow:0 0 0 3px rgba(74,170,108,.25);}
+  .mav{width:104px;height:104px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:44px;font-weight:600;}
+  .mtag{position:absolute;bottom:10px;right:12px;left:12px;font-size:13px;color:#eee;background:rgba(0,0,0,.45);padding:4px 8px;border-radius:6px;display:flex;align-items:center;gap:6px;justify-content:flex-start;}
+  .mmic{color:#4AAA6C;font-size:11px;}
+  .stage-ctl{display:flex;align-items:center;justify-content:center;gap:12px;padding:14px;background:#161617;border-top:1px solid #232324;}
+  .mctl{width:44px;height:44px;border-radius:10px;background:#2a2a2c;display:flex;align-items:center;justify-content:center;color:#e6e6e6;}
+  .mctl .ic svg{width:22px;height:22px;}
+  .mctl.end{background:#c4314b;color:#fff;width:64px;}
+
+  html,body{margin:0;padding:0;width:1920px;height:1080px;overflow:hidden;}
+  body{background:radial-gradient(1200px 700px at 78% -10%, #e9f4ec 0%, #eef1f0 45%, #e7ebe9 100%);font-family:'Noto Sans Arabic','Segoe UI',sans-serif;}
+  .wrap{width:1920px;height:1080px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:40px 60px;}
+  .brandbar{position:absolute;top:34px;right:60px;display:flex;align-items:center;gap:12px;color:#0f3d23;}
+  .brandbar .em{font-size:30px;}
+  .brandbar .w1{font-weight:700;font-size:20px;}
+  .brandbar .w2{font-size:13px;color:#4c6b57;}
+  .cap{text-align:center;}
+  .cap h2{margin:0;color:#0f3d23;font-size:26px;font-weight:700;}
+  .cap p{margin:4px 0 0;color:#4c6b57;font-size:15px;}
+  .win{width:1680px;height:876px;border-radius:16px;overflow:hidden;background:#0b0b0c;box-shadow:0 30px 80px rgba(20,60,40,.22);display:flex;flex-direction:column;border:1px solid #cfe0d5;}
+  .titlebar{height:46px;background:#3a3a3c;display:flex;align-items:center;justify-content:space-between;padding:0 16px;color:#e8e8e8;flex-shrink:0;}
+  .tb-l{display:flex;align-items:center;gap:10px;font-size:14px;color:#d6d6d6;}
+  .tb-dot{width:10px;height:10px;border-radius:50%;}
+  .tb-mid{display:flex;align-items:center;gap:8px;font-size:13px;color:#bdbdbd;}
+  .body{flex:1;display:flex;min-height:0;}
+  .panelwrap{position:relative;flex-shrink:0;background:#000;border-inline-start:1px solid #2b2b2d;}
+  .stage.focus, .body.focus .stage{filter:saturate(.85) brightness(.72) blur(1.2px);}
+  .panelwrap.focus{box-shadow:-24px 0 60px rgba(0,0,0,.45);}
+</style></head>
+<body>
+  <div class="wrap">
+    <div class="brandbar"><span class="em emoji">⚖️</span><div><div class="w1">وزارة العدل</div><div class="w2">Ministry of Justice · Kingdom of Saudi Arabia</div></div></div>
+    <div class="win">
+      <div class="titlebar">
+        <div class="tb-l"><span class="tb-dot" style="background:#ff5f57"></span><span class="tb-dot" style="background:#febc2e"></span><span class="tb-dot" style="background:#28c840"></span>&nbsp;Microsoft Teams — جلسة المرافعة</div>
+        <div class="tb-mid"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><rect x="4" y="4" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="13" y="4" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="4" y="13" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/><rect x="13" y="13" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="1.6"/></svg></span> &nbsp;الاجتماع · القضية ٤٣٥/٢/ق</div>
+        <div class="tb-l"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="8.5" cy="9" r="2.8" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 18a5 5 0 0 1 10 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16.5" cy="9.5" r="2.2" stroke="currentColor" stroke-width="1.7"/><path d="M15 13.5a4.5 4.5 0 0 1 5.5 4.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span> ٦&nbsp;&nbsp;<span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="5.5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor"/></svg></span></div>
+      </div>
+      <div class="body focus">
+        <div class="stage focus">
+    <div class="stage-top">
+      <div class="stage-title">جلسة المرافعة — القضية ٤٣٥/٢/ق</div>
+      <div class="stage-top-r">
+        <span class="recpill">● جارٍ التسجيل · 00:12:47</span>
+        <span class="pcount"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="8.5" cy="9" r="2.8" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 18a5 5 0 0 1 10 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16.5" cy="9.5" r="2.2" stroke="currentColor" stroke-width="1.7"/><path d="M15 13.5a4.5 4.5 0 0 1 5.5 4.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span> ٦</span>
+      </div>
+    </div>
+    <div class="stage-grid">
+    <div class="mtile speaking">
+      <div class="mav" style="background:#1B6C3C">ع</div>
+      <div class="mtag">عبدالله الراجحي — القاضي <span class="mmic">●</span></div>
+    </div>
+    <div class="mtile">
+      <div class="mav" style="background:#5B5F5F">ف</div>
+      <div class="mtag">فهد القحطاني — كاتب الضبط </div>
+    </div>
+    <div class="mtile">
+      <div class="mav" style="background:#3B5BA5">س</div>
+      <div class="mtag">سعد المطيري — المحامي </div>
+    </div>
+    <div class="mtile">
+      <div class="mav" style="background:#8A5A2B">م</div>
+      <div class="mtag">ماجد العتيبي — المدعى عليه </div>
+    </div>
+    <div class="mtile">
+      <div class="mav" style="background:#6B4B7A">خ</div>
+      <div class="mtag">خالد الزهراني — الشاهد </div>
+    </div>
+    <div class="mtile">
+      <div class="mav" style="background:#2B7A78">ن</div>
+      <div class="mtag">نورة السالم — حاضرة </div>
+    </div></div>
+    <div class="stage-ctl">
+      <span class="mctl "><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><rect x="9.2" y="4" width="5.6" height="10" rx="2.8" fill="currentColor"/><path d="M6.5 12a5.5 5.5 0 0 0 11 0M12 17.5V20" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span><span class="mctl "><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><rect x="3.5" y="7" width="12" height="10" rx="2" stroke="currentColor" stroke-width="1.7"/><path d="M15.5 11l5-2.5v7l-5-2.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span><span class="mctl "><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M12 15V4M8.5 7.5 12 4l3.5 3.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M5 13v5.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5V13" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span><span class="mctl "><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="8.5" cy="9" r="2.8" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 18a5 5 0 0 1 10 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="16.5" cy="9.5" r="2.2" stroke="currentColor" stroke-width="1.7"/><path d="M15 13.5a4.5 4.5 0 0 1 5.5 4.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span><span class="mctl "><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1-1.5 1.5H9l-4 3.5V7A1.5 1.5 0 0 1 6.5 5.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span><span class="mctl "><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M9 11V5.5a1.3 1.3 0 0 1 2.6 0V10M11.6 10V4.6a1.3 1.3 0 0 1 2.6 0V10M14.2 10.5V6.4a1.3 1.3 0 0 1 2.6 0V14a5 5 0 0 1-5 5h-1a4 4 0 0 1-3-1.4L6 14.5a1.4 1.4 0 0 1 2.2-1.7L9 13.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span><span class="mctl "><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="5.5" cy="12" r="1.6" fill="currentColor"/><circle cx="12" cy="12" r="1.6" fill="currentColor"/><circle cx="18.5" cy="12" r="1.6" fill="currentColor"/></svg></span></span>
+      <span class="mctl end"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M4.2 13.5c4.3-4 11.3-4 15.6 0 .9.8.7 1.8 0 2.6l-1.7 1.7c-.5.5-1.2.6-1.8.2l-2-1.3c-.5-.3-.7-.9-.6-1.5l.2-1.1c-1.9-.6-3.9-.6-5.8 0l.2 1.1c.1.6-.1 1.2-.6 1.5l-2 1.3c-.6.4-1.3.3-1.8-.2L2.2 16c-.7-.8-.9-1.8 0-2.5Z" fill="currentColor"/></svg></span></span>
+    </div></div>
+        <div class="panelwrap focus" style="width:720px">
+          
+  <div class="app">
+    
+  <header class="hdr">
+    <div class="hdr-l">
+      <span class="hdr-emblem emoji">⚖️</span>
+      <div class="hdr-info">
+        <div class="hdr-brandrow">
+          <span class="hdr-app">المحضر الذكي</span>
+          <span class="hdr-min">وزارة العدل</span>
+        </div>
+        <div class="hdr-meta">
+          <span class="badge sm tint-brand">رقم القضية: ٤٣٥/٢/ق</span>
+          <span class="badge sm outline-brand">اسم الدائرة: الدائرة التجارية الثالثة</span>
+        </div>
+      </div>
+    </div>
+    <div class="hdr-r">
+      <span class="hdr-speaker"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M17 8.5a4 4 0 0 1 0 7M19.5 6.5a7 7 0 0 1 0 11" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span> القاضي — عبدالله الراجحي</span><span class="hdr-metric"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="12" cy="13" r="7" stroke="currentColor" stroke-width="1.7"/><path d="M12 9.5V13l2.5 1.5M9.5 3.5h5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span> 00:12:47</span><span class="badge lg filled-danger pulse"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="12" cy="12" r="6" fill="currentColor"/></svg></span>التوثيق جارٍ</span>
+      <span class="theme-toggle"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="12" cy="12" r="4" stroke="currentColor" stroke-width="1.7"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M18.4 5.6l-1.8 1.8M7.4 16.6l-1.8 1.8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="switch off"></span></span>
+      <span class="btn icon subtle"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="12" cy="12" r="8" stroke="currentColor" stroke-width="1.7"/><path d="M12 11v5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><circle cx="12" cy="8.2" r="1.05" fill="currentColor"/></svg></span></span>
+    </div>
+  </header>
+    
+  <div class="tbar">
+    <span class="btn secondary"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><rect x="7" y="6" width="3.2" height="12" rx="1" fill="currentColor"/><rect x="13.8" y="6" width="3.2" height="12" rx="1" fill="currentColor"/></svg></span>إيقاف مؤقت</span>
+    <span class="btn secondary"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><rect x="6.5" y="6.5" width="11" height="11" rx="2" fill="currentColor"/></svg></span>إيقاف التوثيق</span>
+    <span class="btn primary"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M7 4.5h6M18 4.5V10M15.5 7.25H20.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 9v11l5-2.7L17 20v-6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>إضافة علامة</span>
+    <span class="divider"></span>
+    <div class="grow">
+    <div class="searchwrap">
+      <div class="input md"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="10.5" cy="10.5" r="6" stroke="currentColor" stroke-width="1.7"/><path d="M15 15l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="ph">ابحث في النص…</span></div>
+      
+    </div></div>
+    
+    <span class="btn icon subtle"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.2L6 20V5.5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span><span class="btn icon subtle"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><rect x="4.5" y="12" width="3.5" height="7" rx="1" fill="currentColor"/><rect x="10.25" y="8" width="3.5" height="11" rx="1" fill="currentColor"/><rect x="16" y="5" width="3.5" height="14" rx="1" fill="currentColor"/></svg></span></span><span class="btn icon subtle"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M8.5 8.5V6.5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="4.5" y="8.5" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/></svg></span></span><span class="btn icon subtle"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M7 9V4.5h10V9" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M7 17.5H5.5a1.5 1.5 0 0 1-1.5-1.5v-4a1.5 1.5 0 0 1 1.5-1.5h13a1.5 1.5 0 0 1 1.5 1.5v4a1.5 1.5 0 0 1-1.5 1.5H17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="7" y="14.5" width="10" height="5" rx="1" stroke="currentColor" stroke-width="1.7"/></svg></span></span><span class="btn icon subtle"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="7" cy="17" r="2.6" stroke="currentColor" stroke-width="1.7"/><circle cx="17" cy="15" r="2.6" stroke="currentColor" stroke-width="1.7"/><path d="M9.6 17V7l10-2v10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+    <span class="btn secondary"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M12 4v10M8 10.5l4 4 4-4M5 19h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>تصدير</span>
+  </div>
+    
+    <div class="tlist">
+  <div class="seg">
+    <div class="seg-head">
+      <span class="seg-speaker">عبدالله الراجحي<span class="seg-role"> · القاضي</span></span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 19a5.5 5.5 0 0 1 8.5-4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 19l4.4-4.4a1.4 1.4 0 0 1 2 2L16 21l-2.5.5.5-2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+      <span class="seg-spacer"></span>
+      <span class="seg-time">١٠:٣٢:٠٥</span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M8.5 8.5V6.5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="4.5" y="8.5" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/></svg></span></span>
+    </div>
+    <div class="seg-text">نفتتح الجلسة باسم الله الرحمن الرحيم، في القضية رقم ٤٣٥/٢/ق المقيَّدة لدى الدائرة التجارية الثالثة. ليذكر الحاضرون أسماءهم للتوثيق.</div>
+  </div>
+  <div class="seg">
+    <div class="seg-head">
+      <span class="seg-speaker">فهد القحطاني<span class="seg-role"> · كاتب الضبط</span></span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 19a5.5 5.5 0 0 1 8.5-4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 19l4.4-4.4a1.4 1.4 0 0 1 2 2L16 21l-2.5.5.5-2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+      <span class="seg-spacer"></span>
+      <span class="seg-time">١٠:٣٢:٤٨</span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M8.5 8.5V6.5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="4.5" y="8.5" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/></svg></span></span>
+    </div>
+    <div class="seg-text">حضر عن المدعي وكيله المحامي سعد المطيري، وحضر عن المدعى عليه الأستاذ ماجد العتيبي بموجب الوكالة رقم ٢٢١٧.</div>
+  </div>
+  <div class="seg">
+    <div class="seg-head">
+      <span class="seg-speaker">سعد المطيري<span class="seg-role"> · المحامي</span></span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 19a5.5 5.5 0 0 1 8.5-4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 19l4.4-4.4a1.4 1.4 0 0 1 2 2L16 21l-2.5.5.5-2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+      <span class="seg-spacer"></span>
+      <span class="seg-time">١٠:٣٣:٢٠</span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M8.5 8.5V6.5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="4.5" y="8.5" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/></svg></span></span>
+    </div>
+    <div class="seg-text">موكّلي شركة الفهد للمقاولات يطالب المدعى عليه بقيمة الأعمال المنفَّذة وقدرها مئتان وخمسون ألف ريال، مع التعويض عن التأخير في السداد.</div>
+  </div>
+  <div class="seg">
+    <div class="seg-head">
+      <span class="seg-speaker">ماجد العتيبي<span class="seg-role"> · المدعى عليه</span></span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 19a5.5 5.5 0 0 1 8.5-4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 19l4.4-4.4a1.4 1.4 0 0 1 2 2L16 21l-2.5.5.5-2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+      <span class="seg-spacer"></span>
+      <span class="seg-time">١٠:٣٤:٠٢</span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M8.5 8.5V6.5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="4.5" y="8.5" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/></svg></span></span>
+    </div>
+    <div class="seg-text">نُقرّ بأصل التعاقد، غير أنّ جزءاً من الأعمال لم يُنفَّذ وفق المواصفات المتَّفق عليها في بنود العقد.</div>
+  </div>
+  <div class="seg">
+    <div class="seg-head">
+      <span class="seg-speaker">عبدالله الراجحي<span class="seg-role"> · القاضي</span></span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 19a5.5 5.5 0 0 1 8.5-4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 19l4.4-4.4a1.4 1.4 0 0 1 2 2L16 21l-2.5.5.5-2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+      <span class="seg-spacer"></span>
+      <span class="seg-time">١٠:٣٤:٤٠</span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M8.5 8.5V6.5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="4.5" y="8.5" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/></svg></span></span>
+    </div>
+    <div class="seg-text">هل لديكم مستندات تُثبت مطابقة الأعمال للمواصفات المذكورة في العقد؟</div>
+  </div>
+  <div class="seg">
+    <div class="seg-head">
+      <span class="seg-speaker">سعد المطيري<span class="seg-role"> · المحامي</span></span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 19a5.5 5.5 0 0 1 8.5-4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 19l4.4-4.4a1.4 1.4 0 0 1 2 2L16 21l-2.5.5.5-2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+      <span class="seg-spacer"></span>
+      <span class="seg-time">١٠:٣٥:١٨</span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M8.5 8.5V6.5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="4.5" y="8.5" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/></svg></span></span>
+    </div>
+    <div class="seg-text">نعم يا فضيلة القاضي، لدينا محضر الاستلام الابتدائي موقَّعاً من الطرفين، وتقرير المكتب الهندسي المعتمد بمطابقة الأعمال.</div>
+  </div>
+  <div class="seg">
+    <div class="seg-head">
+      <span class="seg-speaker">خالد الزهراني<span class="seg-role"> · الشاهد</span></span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 19a5.5 5.5 0 0 1 8.5-4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 19l4.4-4.4a1.4 1.4 0 0 1 2 2L16 21l-2.5.5.5-2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+      <span class="seg-spacer"></span>
+      <span class="seg-time">١٠:٣٦:٠٥</span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M8.5 8.5V6.5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="4.5" y="8.5" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/></svg></span></span>
+    </div>
+    <div class="seg-text">أشهد أنّ الأعمال نُفِّذت بحسب المخططات المعتمدة، وقد عاينتُ الموقع بنفسي يوم الاستلام ولم ألحظ أي مخالفة.</div>
+  </div>
+  <div class="seg">
+    <div class="seg-head">
+      <span class="seg-speaker">عبدالله الراجحي<span class="seg-role"> · القاضي</span></span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><circle cx="9" cy="8" r="3.2" stroke="currentColor" stroke-width="1.7"/><path d="M3.5 19a5.5 5.5 0 0 1 8.5-4.6" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 19l4.4-4.4a1.4 1.4 0 0 1 2 2L16 21l-2.5.5.5-2.5Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span>
+      <span class="seg-spacer"></span>
+      <span class="seg-time">١٠:٣٦:٥٢</span>
+      <span class="btn small icon transparent"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M8.5 8.5V6.5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/><rect x="4.5" y="8.5" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.7"/></svg></span></span>
+    </div>
+    <div class="seg-text">تُقيَّد أقوال الشاهد. ويُمهَل المدعى عليه أسبوعاً لتقديم مذكّرته الجوابية والمستندات المؤيّدة، وتُرفع الجلسة.</div>
+  </div></div>
+  </div>
+          
+  <div class="scrim"><div class="dialog" style="max-width:520px">
+    <div class="dtitle">العلامات المرجعية</div>
+    <div class="dbody">
+      <div class="bk-add">
+        <div class="input" style="flex:1"><span class="ph">وصف العلامة (مثال: بداية الدعوى)</span></div>
+        <span class="btn primary"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>إضافة علامة</span>
+      </div>
+      <div class="bk-list"><div class="bk-item"><span class="btn subtle bk-jump"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.2L6 20V5.5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="bk-time">00:00:12</span>&nbsp;&nbsp;افتتاح الجلسة</span><span class="btn subtle icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M5.5 7h13M9.5 7V5.5h5V7M7 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h5.4a1.5 1.5 0 0 0 1.5-1.4L18 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span></div><div class="bk-item"><span class="btn subtle bk-jump"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.2L6 20V5.5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="bk-time">00:02:35</span>&nbsp;&nbsp;مطالبة المدعي بقيمة الأعمال</span><span class="btn subtle icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M5.5 7h13M9.5 7V5.5h5V7M7 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h5.4a1.5 1.5 0 0 0 1.5-1.4L18 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span></div><div class="bk-item"><span class="btn subtle bk-jump"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.2L6 20V5.5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="bk-time">00:05:48</span>&nbsp;&nbsp;إقرار المدعى عليه بالتعاقد</span><span class="btn subtle icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M5.5 7h13M9.5 7V5.5h5V7M7 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h5.4a1.5 1.5 0 0 0 1.5-1.4L18 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span></div><div class="bk-item"><span class="btn subtle bk-jump"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M7 4.5h10a1 1 0 0 1 1 1V20l-6-3.2L6 20V5.5a1 1 0 0 1 1-1Z" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span><span class="bk-time">00:07:10</span>&nbsp;&nbsp;شهادة الشاهد خالد الزهراني</span><span class="btn subtle icon"><span class="ic"><svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" ><path d="M5.5 7h13M9.5 7V5.5h5V7M7 7l.8 12a1.5 1.5 0 0 0 1.5 1.4h5.4a1.5 1.5 0 0 0 1.5-1.4L18 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span></span></div></div>
+      <div class="dactions"><span class="btn secondary">إغلاق</span></div>
+    </div>
+  </div></div>
+        </div>
+      </div>
+    </div>
+    <div class="cap"><h2>العلامات المرجعية · Bookmarks</h2><p>توثيق اللحظات المهمة والقفز إليها في التسجيل</p></div>
+  </div>
+</body></html>
