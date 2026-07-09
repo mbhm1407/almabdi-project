@@ -106,6 +106,39 @@ Trusted: API server, Azure SQL, Azure Blob, Azure Speech (server-side key)
 | A09 Logging/Monitoring | Structured logs + correlation ids + audit trail |
 | A10 SSRF | No user-controlled outbound requests |
 
+## Token-validation hardening (post-deployment procedure)
+
+The verifier (`infrastructure/auth/entraTokenVerifier.ts`) already strictly
+validates **signature (RS256/JWKS), algorithm, audience, issuer, tenant (via the
+tenant-scoped issuer) and expiry/nbf**. Two further defense-in-depth controls —
+requiring the `scp` (delegated-scope) claim and explicitly rejecting ID tokens —
+are **intentionally not enforced in code** because their compatibility depends on
+the tenant's app-registration configuration (`accessTokenAcceptedVersion`,
+exposed-scope name) and can only be confirmed with a real Teams SSO token. Enable
+them **only after** completing this verification against the target tenant:
+
+1. **Capture a real token.** In the deployed app (or a Teams test meeting) call
+   `authentication.getAuthToken()` and copy the token, or decode a captured
+   `Authorization: Bearer` value at <https://jwt.ms>.
+2. **Confirm the claims** on the decoded token:
+   - `aud` equals `ENTRA_API_CLIENT_ID` **or** `api://<APP_DOMAIN>/<CLIENT_ID>`.
+   - `iss` matches `https://login.microsoftonline.com/<TENANT_ID>/v2.0` (or the
+     v1 `https://sts.windows.net/<TENANT_ID>/`).
+   - `tid` equals `ENTRA_TENANT_ID`.
+   - `scp` is present and **contains** the exposed scope (default
+     `access_as_user`). Note the exact value and `ver` (`1.0` vs `2.0`).
+3. **Only if step 2 confirms `scp` is present with the expected value**, add a
+   scope check after `jwt.verify` succeeds, e.g. reject when the space-delimited
+   `scp` does not include `env.ENTRA_API_SCOPE`. This also rejects ID tokens
+   (which carry no `scp`). Add a unit test over the pure claim-mapping with a
+   payload that has / lacks the scope.
+4. **Re-test SSO end to end** in Teams (desktop, web, mobile) before release; a
+   too-strict scope check will silently break sign-in.
+
+Until this tenant-specific verification is done, keeping `scp` unenforced is the
+safe default — the audience + issuer + tenant + signature checks already bind the
+token to this app and tenant.
+
 ## Known residual risk
 
 - Two **moderate** transitive advisories via Microsoft's Speech SDK (`uuid`
