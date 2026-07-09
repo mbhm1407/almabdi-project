@@ -6,6 +6,7 @@ import rateLimit from 'express-rate-limit';
 import { pinoHttp } from 'pino-http';
 import { corsOrigins, env } from './config/env.js';
 import { logger } from './lib/logger.js';
+import { requestId } from './middleware/requestId.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { healthRouter } from './features/health/healthRoutes.js';
 import { sessionRouter } from './features/sessions/sessionRoutes.js';
@@ -45,22 +46,39 @@ export function createApp(): Express {
         },
       },
       crossOriginEmbedderPolicy: false,
+      // HSTS: force HTTPS for a year, including subdomains, and eligible for preload.
+      hsts: { maxAge: 31_536_000, includeSubDomains: true, preload: true },
+      referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
       // Allow the page to be framed by Teams.
       frameguard: false,
     }),
   );
+
+  // Permissions-Policy: only the microphone is needed (for live transcription).
+  app.use((_req, res, next) => {
+    res.setHeader('Permissions-Policy', 'microphone=(self), camera=(), geolocation=()');
+    next();
+  });
 
   app.use(
     cors({
       origin: corsOrigins,
       credentials: true,
       methods: ['GET', 'POST', 'PATCH', 'DELETE'],
-      allowedHeaders: ['Authorization', 'Content-Type'],
+      allowedHeaders: ['Authorization', 'Content-Type', 'x-request-id'],
+      exposedHeaders: ['x-request-id'],
     }),
   );
 
   app.use(compression());
-  app.use(pinoHttp({ logger }));
+  app.use(requestId());
+  app.use(
+    pinoHttp({
+      logger,
+      // Reuse the correlation id assigned by the requestId middleware.
+      genReqId: (req) => (req as { id?: string }).id ?? 'unknown',
+    }),
+  );
 
   // Global rate limiter. Fine-grained enough to protect the API without
   // throttling the segment-streaming path during an active hearing.

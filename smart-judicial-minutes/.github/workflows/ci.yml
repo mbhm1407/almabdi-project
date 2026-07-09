@@ -6,9 +6,13 @@ on:
   pull_request:
     branches: [main]
 
+defaults:
+  run:
+    working-directory: smart-judicial-minutes
+
 jobs:
   build-test:
-    name: Lint, typecheck, test & build
+    name: Lint, typecheck, test, coverage & build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,32 +25,66 @@ jobs:
           cache-dependency-path: smart-judicial-minutes/package-lock.json
 
       - name: Install dependencies
-        working-directory: smart-judicial-minutes
         run: npm ci || npm install
 
       - name: Build shared package
-        working-directory: smart-judicial-minutes
         run: npm run build --workspace @smj/shared
 
       - name: Lint
-        working-directory: smart-judicial-minutes
         run: npm run lint
 
       - name: Prettier check
-        working-directory: smart-judicial-minutes
         run: npm run format:check
 
       - name: Typecheck
-        working-directory: smart-judicial-minutes
         run: npm run typecheck
 
-      - name: Test
-        working-directory: smart-judicial-minutes
-        run: npm test
+      - name: Validate Teams manifest
+        run: node scripts/validate-manifest.mjs
+
+      - name: Test with coverage
+        run: npm run test:coverage
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: |
+            smart-judicial-minutes/packages/server/coverage
+            smart-judicial-minutes/packages/client/coverage
+          if-no-files-found: ignore
 
       - name: Build
-        working-directory: smart-judicial-minutes
         run: npm run build
+
+      - name: Package Teams app
+        run: node scripts/package-teams-app.mjs
+
+      - name: Upload Teams app package
+        uses: actions/upload-artifact@v4
+        with:
+          name: teams-app-package
+          path: smart-judicial-minutes/teams-app/appPackage.zip
+          if-no-files-found: error
+
+  security-audit:
+    name: Dependency & security audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: smart-judicial-minutes/package-lock.json
+      - name: Install dependencies
+        run: npm ci || npm install
+      # Report production-dependency vulnerabilities. Non-blocking so a new
+      # advisory never breaks delivery, but always visible in the run log.
+      - name: npm audit (production deps)
+        run: npm audit --omit=dev --audit-level=high || true
 
   docker:
     name: Build Docker images
@@ -55,8 +93,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Build server image
-        working-directory: smart-judicial-minutes
         run: docker build -f packages/server/Dockerfile -t smj-server .
       - name: Build client image
-        working-directory: smart-judicial-minutes
         run: docker build -f packages/client/Dockerfile -t smj-client .

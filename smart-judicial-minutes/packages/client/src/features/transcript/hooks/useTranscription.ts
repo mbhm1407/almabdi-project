@@ -39,6 +39,8 @@ export interface UseTranscription {
   elapsedMs: number;
   recording: RecordingInfo | null;
   bookmarks: Bookmark[];
+  /** true while the Speech connection is being automatically re-established. */
+  isReconnecting: boolean;
   error: unknown | null;
   isSaving: boolean;
   start: (setup: SessionSetup) => Promise<void>;
@@ -73,6 +75,7 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
   const [elapsedMs, setElapsedMs] = useState(0);
   const [recording, setRecording] = useState<RecordingInfo | null>(null);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const [error, setError] = useState<unknown | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -213,6 +216,7 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
       elapsedRef.current = 0;
       setRecording(null);
       setBookmarks([]);
+      setIsReconnecting(false);
 
       try {
         const { session: created } = await apiClient.startSession({
@@ -226,11 +230,18 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
 
         const transcriber = new SpeechTranscriber({
           onSegment: upsertSegment,
-          onError: (message) => setError(new Error(message)),
+          onError: (message) => {
+            setIsReconnecting(false);
+            setError(new Error(message));
+          },
           onStopped: () => {
             /* handled by explicit stop() */
           },
-          onReconnected: () => setError(null),
+          onReconnecting: () => setIsReconnecting(true),
+          onReconnected: () => {
+            setIsReconnecting(false);
+            setError(null);
+          },
         });
         transcriberRef.current = transcriber;
 
@@ -271,6 +282,7 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
   const stop = useCallback(async () => {
     if (status !== 'active' && status !== 'paused') return;
     setStatus('stopping');
+    setIsReconnecting(false);
     try {
       await teardown();
       await flush();
@@ -390,6 +402,7 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
     elapsedMs,
     recording,
     bookmarks,
+    isReconnecting,
     error,
     isSaving,
     start,

@@ -12,6 +12,10 @@ const useStyles = makeStyles({
     },
     animationDuration: '1.4s',
     animationIterationCount: 'infinite',
+    // Respect users who prefer reduced motion (WCAG 2.2 — 2.3.3).
+    '@media (prefers-reduced-motion: reduce)': {
+      animationName: 'none',
+    },
   },
 });
 

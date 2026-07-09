@@ -1,6 +1,8 @@
 import { env } from '../../config/env.js';
 import { UpstreamError } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
+import { withRetry } from '../../lib/retry.js';
+import { CircuitBreaker } from '../../lib/circuitBreaker.js';
 import type { SpeechToken } from '@smj/shared';
 
 /**
@@ -14,8 +16,13 @@ const TOKEN_TTL_SECONDS = 9 * 60; // refresh a minute before Azure's 10-minute e
 
 class SpeechService {
   private cached: { token: string; expiresAt: number } | null = null;
+  // Protect the STS endpoint: fail fast when Azure Speech is down.
+  private readonly breaker = new CircuitBreaker('azure-speech-sts', {
+    failureThreshold: 5,
+    resetTimeoutMs: 30_000,
+  });
 
-  private async fetchToken(): Promise<string> {
+  private async requestToken(): Promise<string> {
     const url = `https://${env.AZURE_SPEECH_REGION}.api.cognitive.microsoft.com/sts/v1.0/issueToken`;
     const response = await fetch(url, {
       method: 'POST',
@@ -25,10 +32,29 @@ class SpeechService {
       },
     });
     if (!response.ok) {
-      logger.error({ status: response.status }, 'Azure Speech token request failed');
-      throw new UpstreamError('Could not obtain a speech token');
+      throw new Error(`Speech STS responded ${response.status}`);
     }
     return response.text();
+  }
+
+  private async fetchToken(): Promise<string> {
+    try {
+      return await this.breaker.execute(() =>
+        withRetry(() => this.requestToken(), {
+          attempts: 3,
+          baseDelayMs: 300,
+          maxDelayMs: 3_000,
+          onRetry: (err, attempt) =>
+            logger.warn({ err, attempt }, 'Retrying Azure Speech token request'),
+        }),
+      );
+    } catch (err) {
+      logger.error(
+        { err, circuit: this.breaker.currentState },
+        'Azure Speech token request failed',
+      );
+      throw new UpstreamError('Could not obtain a speech token');
+    }
   }
 
   async issueToken(): Promise<SpeechToken> {

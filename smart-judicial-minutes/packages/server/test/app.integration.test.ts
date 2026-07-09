@@ -20,6 +20,7 @@ beforeAll(async () => {
   vi.stubEnv('SQL_USER', 'u');
   vi.stubEnv('SQL_PASSWORD', 'p');
   vi.stubEnv('BLOB_ACCOUNT_NAME', 'acct');
+  vi.stubEnv('LOG_LEVEL', 'silent');
   const { createApp } = await import('../src/app.js');
   app = createApp();
 });
@@ -69,6 +70,21 @@ describe('authentication guard', () => {
       '/api/sessions/11111111-1111-1111-1111-111111111111/bookmarks',
     );
     expect(res.status).toBe(401);
+  });
+});
+
+describe('correlation id', () => {
+  it('returns an x-request-id header on every response', async () => {
+    const res = await request(app).get('/health/live');
+    expect(res.headers['x-request-id']).toMatch(/^[0-9a-f-]{36}$/i);
+  });
+
+  it('echoes a safe inbound x-request-id and includes it in error bodies', async () => {
+    const res = await request(app)
+      .get('/api/sessions?meetingId=m-1')
+      .set('x-request-id', 'trace-123');
+    expect(res.headers['x-request-id']).toBe('trace-123');
+    expect(res.body.error.requestId).toBe('trace-123');
   });
 });
 

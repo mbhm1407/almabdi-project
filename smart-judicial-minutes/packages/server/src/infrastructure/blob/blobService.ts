@@ -2,13 +2,26 @@ import {
   BlobServiceClient,
   BlobSASPermissions,
   generateBlobSASQueryParameters,
+  StorageRetryPolicyType,
   StorageSharedKeyCredential,
   SASProtocol,
+  type StoragePipelineOptions,
 } from '@azure/storage-blob';
 import { DefaultAzureCredential } from '@azure/identity';
 import { env } from '../../config/env.js';
 import { logger } from '../../lib/logger.js';
 import { UpstreamError } from '../../lib/errors.js';
+
+/** Exponential retry policy applied to every Blob operation. */
+const pipelineOptions: StoragePipelineOptions = {
+  retryOptions: {
+    retryPolicyType: StorageRetryPolicyType.EXPONENTIAL,
+    maxTries: 4,
+    retryDelayInMs: 500,
+    maxRetryDelayInMs: 8_000,
+    tryTimeoutInMs: 60_000,
+  },
+};
 
 /**
  * Wraps Azure Blob Storage for audio-recording persistence. Uses a connection
@@ -24,7 +37,10 @@ class BlobService {
       this.clientPromise = (async () => {
         let client: BlobServiceClient;
         if (env.BLOB_CONNECTION_STRING) {
-          client = BlobServiceClient.fromConnectionString(env.BLOB_CONNECTION_STRING);
+          client = BlobServiceClient.fromConnectionString(
+            env.BLOB_CONNECTION_STRING,
+            pipelineOptions,
+          );
           // Extract shared key so we can mint SAS tokens for downloads.
           const match = /AccountKey=([^;]+)/.exec(env.BLOB_CONNECTION_STRING);
           if (match?.[1]) {
@@ -32,7 +48,7 @@ class BlobService {
           }
         } else {
           const url = `https://${env.BLOB_ACCOUNT_NAME}.blob.core.windows.net`;
-          client = new BlobServiceClient(url, new DefaultAzureCredential());
+          client = new BlobServiceClient(url, new DefaultAzureCredential(), pipelineOptions);
         }
         const container = client.getContainerClient(env.BLOB_CONTAINER);
         await container.createIfNotExists();

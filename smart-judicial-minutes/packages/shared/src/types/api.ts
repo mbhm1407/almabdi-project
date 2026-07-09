@@ -7,6 +7,8 @@ export const apiErrorSchema = z.object({
     message: z.string(),
     /** Optional field-level validation details. */
     details: z.array(z.object({ path: z.string(), message: z.string() })).optional(),
+    /** Correlation id echoing the x-request-id header, for support/tracing. */
+    requestId: z.string().optional(),
   }),
 });
 

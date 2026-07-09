@@ -109,7 +109,12 @@ smart-judicial-minutes/
 └── .github/workflows/ci.yml
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the design and data flow.
+Documentation:
+
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — design and data flow.
+- [`docs/PRODUCTION.md`](docs/PRODUCTION.md) — deployment, Azure setup, env vars,
+  reliability, monitoring, troubleshooting and recovery procedures.
+- [`docs/API.md`](docs/API.md) — REST API reference.
 
 ## Getting started (local development)
 

@@ -60,6 +60,8 @@ export const AR = {
   connected: 'متصل',
   disconnected: 'غير متصل',
   reconnecting: 'إعادة الاتصال…',
+  reconnectingBanner: 'انقطع الاتصال بخدمة التوثيق — تتم إعادة الاتصال تلقائيًا، ولن يُفقد النص.',
+  offlineBanner: 'لا يوجد اتصال بالإنترنت — سيُحفظ النص محليًا وتُعاد المزامنة عند عودة الاتصال.',
 
   // Export
   exportPdf: 'تصدير PDF',

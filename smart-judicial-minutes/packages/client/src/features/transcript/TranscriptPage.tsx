@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { makeStyles } from '@fluentui/react-components';
+import { MessageBar, MessageBarBody, makeStyles, tokens } from '@fluentui/react-components';
 import { judicialRoleLabel, sessionDurationMs, type Bookmark } from '@smj/shared';
 import type { TeamsMeetingContext } from '../../teams/teamsClient';
 import type { ThemeMode } from '../../theme/themes';
+import { AR } from '../../strings';
 import { formatClock } from '../../services/format';
 import { toFriendlyError } from '../../services/errorMessages';
 import { printTranscript } from '../../services/print';
@@ -22,6 +23,7 @@ import type { Participant, SessionSetup } from './types';
 const useStyles = makeStyles({
   page: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 },
   body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' },
+  banner: { marginInline: tokens.spacingHorizontalL, marginBlockStart: tokens.spacingVerticalS },
 });
 
 interface TranscriptPageProps {
@@ -52,6 +54,7 @@ export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptP
     elapsedMs,
     recording,
     bookmarks,
+    isReconnecting,
     error,
     isSaving,
     start,
@@ -219,6 +222,16 @@ export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptP
             onPrint={handlePrint}
             onError={setLocalError}
           />
+          {isReconnecting && (
+            <MessageBar intent="warning" className={styles.banner} role="status">
+              <MessageBarBody>{AR.reconnectingBanner}</MessageBarBody>
+            </MessageBar>
+          )}
+          {!online && (status === 'active' || status === 'paused') && (
+            <MessageBar intent="warning" className={styles.banner} role="status">
+              <MessageBarBody>{AR.offlineBanner}</MessageBarBody>
+            </MessageBar>
+          )}
           <div className={styles.body}>
             <TranscriptList
               segments={segments}

@@ -12,6 +12,7 @@ beforeEach(() => {
   vi.stubEnv('SQL_USER', 'u');
   vi.stubEnv('SQL_PASSWORD', 'p');
   vi.stubEnv('BLOB_ACCOUNT_NAME', 'acct');
+  vi.stubEnv('LOG_LEVEL', 'silent');
 });
 
 afterEach(() => {

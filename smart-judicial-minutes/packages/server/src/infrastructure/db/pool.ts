@@ -2,6 +2,7 @@ import sql from 'mssql';
 import { DefaultAzureCredential } from '@azure/identity';
 import { env } from '../../config/env.js';
 import { logger } from '../../lib/logger.js';
+import { withRetry } from '../../lib/retry.js';
 
 /**
  * Azure SQL connection pool. Supports both SQL authentication (user/password)
@@ -19,10 +20,13 @@ async function buildConfig(): Promise<sql.config> {
       trustServerCertificate: false,
       enableArithAbort: true,
     },
+    connectionTimeout: 15_000,
+    requestTimeout: 30_000,
     pool: {
       max: 10,
       min: 0,
       idleTimeoutMillis: 30_000,
+      acquireTimeoutMillis: 15_000,
     },
   };
 
@@ -50,14 +54,23 @@ async function buildConfig(): Promise<sql.config> {
 
 export async function getPool(): Promise<sql.ConnectionPool> {
   if (!poolPromise) {
-    poolPromise = (async () => {
-      const config = await buildConfig();
-      const pool = new sql.ConnectionPool(config);
-      pool.on('error', (err: unknown) => logger.error({ err }, 'SQL pool error'));
-      await pool.connect();
-      logger.info('Connected to Azure SQL');
-      return pool;
-    })().catch((err) => {
+    poolPromise = withRetry(
+      async () => {
+        const config = await buildConfig();
+        const pool = new sql.ConnectionPool(config);
+        pool.on('error', (err: unknown) => logger.error({ err }, 'SQL pool error'));
+        await pool.connect();
+        logger.info('Connected to Azure SQL');
+        return pool;
+      },
+      {
+        attempts: 4,
+        baseDelayMs: 500,
+        maxDelayMs: 8_000,
+        onRetry: (err, attempt, delayMs) =>
+          logger.warn({ err, attempt, delayMs }, 'Retrying Azure SQL connection'),
+      },
+    ).catch((err) => {
       poolPromise = null;
       throw err;
     });
