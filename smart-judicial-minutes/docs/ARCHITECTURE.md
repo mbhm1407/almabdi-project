@@ -111,3 +111,9 @@ tab configuration save handler.
   managed-identity auth for zero-secret production deployments.
 - **Auditability:** session start/stop, exports, recording saves and token
   issuance are written to the audit log.
+
+
+---
+
+**Designed and Developed by Mohammed Al-Maabdi** (mbmaabdi@moj.gov.sa)
+Ministry of Justice — Kingdom of Saudi Arabia

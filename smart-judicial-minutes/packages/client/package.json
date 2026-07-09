@@ -1,6 +1,7 @@
 {
   "name": "@smj/client",
   "version": "1.0.0",
+  "author": "Mohammed Al-Maabdi <mbmaabdi@moj.gov.sa>",
   "private": true,
   "type": "module",
   "scripts": {

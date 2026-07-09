@@ -1,0 +1,419 @@
+openapi: 3.0.3
+info:
+  title: Smart Judicial Minutes API
+  description: >-
+    REST API for المحضر الذكي — Smart Judicial Minutes, a Microsoft Teams meeting
+    app that produces a live Arabic transcript for the court clerk.
+    Designed and Developed by Mohammed Al-Maabdi (mbmaabdi@moj.gov.sa),
+    Ministry of Justice — Kingdom of Saudi Arabia.
+  version: 1.0.0
+  license:
+    name: MIT
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: api.example.gov.sa
+security:
+  - bearerAuth: []
+tags:
+  - name: Health
+  - name: Speech
+  - name: Sessions
+  - name: Transcript
+  - name: Recording
+  - name: Bookmarks
+  - name: Audit
+paths:
+  /health/live:
+    get:
+      tags: [Health]
+      security: []
+      summary: Liveness probe
+      responses:
+        '200':
+          description: Process is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+  /health/ready:
+    get:
+      tags: [Health]
+      security: []
+      summary: Readiness probe (checks Azure SQL)
+      responses:
+        '200': { description: Ready }
+        '500': { description: Dependency unavailable }
+  /api/speech/token:
+    get:
+      tags: [Speech]
+      summary: Issue a short-lived Azure Speech token (clerk/admin)
+      responses:
+        '200':
+          description: Token issued
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/SpeechToken' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '502': { $ref: '#/components/responses/Upstream' }
+  /api/sessions:
+    post:
+      tags: [Sessions]
+      summary: Start a session (clerk/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateSession' }
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { $ref: '#/components/schemas/Session' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    get:
+      tags: [Sessions]
+      summary: List sessions for a meeting
+      parameters:
+        - in: query
+          name: meetingId
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items: { $ref: '#/components/schemas/Session' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/sessions/{sessionId}:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    get:
+      tags: [Sessions]
+      summary: Get a session
+      responses:
+        '200':
+          description: Session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { $ref: '#/components/schemas/Session' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/sessions/{sessionId}/stop:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      tags: [Sessions]
+      summary: Stop a session (clerk/admin)
+      responses:
+        '200':
+          description: Stopped session
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session: { $ref: '#/components/schemas/Session' }
+  /api/sessions/{sessionId}/segments:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      tags: [Transcript]
+      summary: Persist a batch of segments (clerk/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                segments:
+                  type: array
+                  maxItems: 500
+                  items: { $ref: '#/components/schemas/Segment' }
+      responses:
+        '201':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  saved: { type: integer }
+    get:
+      tags: [Transcript]
+      summary: Full transcript
+      responses:
+        '200':
+          description: Segments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  segments:
+                    type: array
+                    items: { $ref: '#/components/schemas/Segment' }
+  /api/sessions/{sessionId}/search:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+      - in: query
+        name: q
+        required: true
+        schema: { type: string }
+    get:
+      tags: [Transcript]
+      summary: Search within a transcript
+      responses:
+        '200':
+          description: Matching segments
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  segments:
+                    type: array
+                    items: { $ref: '#/components/schemas/Segment' }
+  /api/sessions/{sessionId}/export:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+      - in: query
+        name: format
+        required: true
+        schema: { type: string, enum: [pdf, docx, txt] }
+    get:
+      tags: [Transcript]
+      summary: Export the transcript (attachment)
+      responses:
+        '200':
+          description: File
+          content:
+            application/pdf: {}
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document: {}
+            text/plain: {}
+  /api/sessions/{sessionId}/recording:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      tags: [Recording]
+      summary: Upload audio recording (clerk/admin)
+      requestBody:
+        required: true
+        content:
+          audio/webm: { schema: { type: string, format: binary } }
+          audio/ogg: { schema: { type: string, format: binary } }
+          audio/wav: { schema: { type: string, format: binary } }
+          audio/mpeg: { schema: { type: string, format: binary } }
+          audio/mp4: { schema: { type: string, format: binary } }
+      responses:
+        '201':
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  blobName: { type: string }
+    get:
+      tags: [Recording]
+      summary: Short-lived SAS download URL
+      responses:
+        '200':
+          description: URL
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url: { type: string, format: uri }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/sessions/{sessionId}/bookmarks:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+    post:
+      tags: [Bookmarks]
+      summary: Add a bookmark (clerk/admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateBookmark' }
+      responses:
+        '201':
+          description: Bookmark
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookmark: { $ref: '#/components/schemas/Bookmark' }
+    get:
+      tags: [Bookmarks]
+      summary: List bookmarks
+      responses:
+        '200':
+          description: Bookmarks
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  bookmarks:
+                    type: array
+                    items: { $ref: '#/components/schemas/Bookmark' }
+  /api/sessions/{sessionId}/bookmarks/{bookmarkId}:
+    parameters:
+      - $ref: '#/components/parameters/SessionId'
+      - in: path
+        name: bookmarkId
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [Bookmarks]
+      summary: Remove a bookmark (clerk/admin)
+      responses:
+        '204': { description: Deleted }
+  /api/audit:
+    get:
+      tags: [Audit]
+      summary: Recent audit entries (admin)
+      parameters:
+        - in: query
+          name: limit
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+      responses:
+        '200': { description: Audit entries }
+        '403': { $ref: '#/components/responses/Forbidden' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    SessionId:
+      in: path
+      name: sessionId
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest:
+      description: Validation failed
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Unauthorized:
+      description: Missing/invalid token
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Forbidden:
+      description: Insufficient role
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    NotFound:
+      description: Not found
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    Upstream:
+      description: Upstream Azure error
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+  schemas:
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string }
+            message: { type: string }
+            requestId: { type: string }
+            details:
+              type: array
+              items:
+                type: object
+                properties:
+                  path: { type: string }
+                  message: { type: string }
+    SpeechToken:
+      type: object
+      properties:
+        token: { type: string }
+        region: { type: string }
+        locale: { type: string, example: ar-SA }
+        expiresInSeconds: { type: integer }
+    CreateSession:
+      type: object
+      required: [meetingId, meetingTitle]
+      properties:
+        meetingId: { type: string }
+        meetingTitle: { type: string }
+        caseNumber: { type: string, nullable: true }
+        circuitName: { type: string, nullable: true }
+        judgeName: { type: string, nullable: true }
+    Session:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        meetingId: { type: string }
+        meetingTitle: { type: string }
+        caseNumber: { type: string, nullable: true }
+        circuitName: { type: string, nullable: true }
+        judgeName: { type: string, nullable: true }
+        tenantId: { type: string }
+        createdBy: { type: string }
+        status: { type: string, enum: [active, stopped] }
+        locale: { type: string }
+        startedAt: { type: string, format: date-time }
+        stoppedAt: { type: string, format: date-time, nullable: true }
+        recordingBlobName: { type: string, nullable: true }
+    Segment:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        speakerId: { type: string }
+        speakerLabel: { type: string }
+        speakerRole:
+          type: string
+          enum: [judge, clerk, plaintiff, defendant, lawyer, witness, observer, unassigned]
+        text: { type: string }
+        timestamp: { type: string, format: date-time }
+        offsetMs: { type: integer }
+        durationMs: { type: integer }
+        isFinal: { type: boolean }
+    CreateBookmark:
+      type: object
+      required: [id, label, offsetMs, timestamp]
+      properties:
+        id: { type: string, format: uuid }
+        label: { type: string, maxLength: 256 }
+        offsetMs: { type: integer }
+        timestamp: { type: string, format: date-time }
+    Bookmark:
+      allOf:
+        - $ref: '#/components/schemas/CreateBookmark'
+        - type: object
+          properties:
+            sessionId: { type: string, format: uuid }

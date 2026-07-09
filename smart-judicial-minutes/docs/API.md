@@ -75,3 +75,9 @@ Roles: `clerk` (default for any authenticated user), `viewer` (read-only),
 `403` forbidden · `404` not found · `429` rate limited · `502` upstream (Azure)
 · `500` internal. All access is tenant-scoped: a session/bookmark/recording is
 only reachable within the caller's Entra tenant.
+
+
+---
+
+**Designed and Developed by Mohammed Al-Maabdi** (mbmaabdi@moj.gov.sa)
+Ministry of Justice — Kingdom of Saudi Arabia

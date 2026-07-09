@@ -1,3 +1,8 @@
+/**
+ * المحضر الذكي — Smart Judicial Minutes (Teams tab client entrypoint)
+ * Designed and Developed by Mohammed Al-Maabdi (mbmaabdi@moj.gov.sa)
+ * Ministry of Justice — Kingdom of Saudi Arabia
+ */
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './app/App';

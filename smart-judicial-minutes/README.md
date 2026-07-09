@@ -4,9 +4,9 @@ A **Microsoft Teams meeting app** that helps the court clerk capture everything
 said during a Teams hearing as a **live Arabic transcript**. It runs inside the
 Teams **meeting side panel** and does one thing well:
 
-> The clerk presses **«بدء النسخ المباشر» (Start Live Transcript)** and every
-> spoken sentence appears instantly — with speaker name and timestamp — as the
-> clerk's reference while writing the official minutes.
+> The clerk presses **«بدء التوثيق» (Start Documentation)** and every spoken
+> sentence appears instantly — with speaker name, judicial role and timestamp —
+> as the clerk's reference while writing the official minutes.
 
 This app is **not** a case-management system. It does not create or approve
 official minutes, manage court workflow, or integrate with judicial systems.
@@ -109,12 +109,39 @@ smart-judicial-minutes/
 └── .github/workflows/ci.yml
 ```
 
-Documentation:
+## Documentation
+
+**Guides**
+
+- [`docs/INSTALLATION.md`](docs/INSTALLATION.md) — local/developer setup.
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — production deployment.
+- [`docs/AZURE_SETUP.md`](docs/AZURE_SETUP.md) — Entra, Speech, SQL, Blob.
+- [`docs/TEAMS_INSTALLATION.md`](docs/TEAMS_INSTALLATION.md) — package & install in Teams.
+- [`docs/PRODUCTION.md`](docs/PRODUCTION.md) — operations, env vars, monitoring, recovery.
+
+**Manuals**
+
+- [`docs/USER_MANUAL.md`](docs/USER_MANUAL.md) — court clerk (Arabic).
+- [`docs/ADMIN_MANUAL.md`](docs/ADMIN_MANUAL.md) — administrators.
+- [`docs/MAINTENANCE.md`](docs/MAINTENANCE.md) — maintenance & releases.
+- [`docs/TROUBLESHOOTING.md`](docs/TROUBLESHOOTING.md) — troubleshooting.
+
+**Architecture & API**
 
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — design and data flow.
-- [`docs/PRODUCTION.md`](docs/PRODUCTION.md) — deployment, Azure setup, env vars,
-  reliability, monitoring, troubleshooting and recovery procedures.
-- [`docs/API.md`](docs/API.md) — REST API reference.
+- [`docs/API.md`](docs/API.md) — REST reference · [`docs/openapi.yaml`](docs/openapi.yaml) — OpenAPI 3.
+- [`docs/diagrams/`](docs/diagrams) — system architecture, component, sequence, ER diagrams.
+
+**Security & operations**
+
+- [`docs/SECURITY.md`](docs/SECURITY.md) — security architecture (OWASP mapping).
+- [`docs/DISASTER_RECOVERY.md`](docs/DISASTER_RECOVERY.md) · [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md).
+- [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md) — go-live checklist.
+
+**Release**
+
+- [`docs/RELEASE_NOTES_v1.0.md`](docs/RELEASE_NOTES_v1.0.md) · [`CHANGELOG.md`](CHANGELOG.md)
+  · [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`LICENSE`](LICENSE).
 
 ## Getting started (local development)
 
@@ -182,7 +209,7 @@ node scripts/package-teams-app.mjs      # -> teams-app/appPackage.zip
 
 Upload `teams-app/appPackage.zip` in Teams → **Apps → Manage your apps →
 Upload an app**, then add it to a meeting. During a hearing, open the app in the
-meeting side panel and press **بدء النسخ المباشر**.
+meeting side panel and press **بدء التوثيق**.
 
 ## Security
 
@@ -195,3 +222,12 @@ meeting side panel and press **بدء النسخ المباشر**.
 - Security-relevant actions written to an **audit log** in Azure SQL.
 - The Azure Speech subscription key never reaches the browser — the backend
   issues short-lived STS tokens instead.
+
+## License
+
+Released under the [MIT License](LICENSE).
+
+## Credits
+
+**Designed and Developed by Mohammed Al-Maabdi** (mbmaabdi@moj.gov.sa)
+Ministry of Justice — Kingdom of Saudi Arabia

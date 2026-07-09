@@ -9,6 +9,7 @@ import { BookmarksPanel } from '../src/features/transcript/components/BookmarksP
 import { StatisticsPanel } from '../src/features/transcript/components/StatisticsPanel';
 import { MeetingHeader } from '../src/features/transcript/components/MeetingHeader';
 import { TranscriptToolbar } from '../src/features/transcript/components/TranscriptToolbar';
+import { AboutDialog } from '../src/features/transcript/components/AboutDialog';
 import { AR } from '../src/strings';
 
 function ui(node: ReactElement) {
@@ -110,6 +111,17 @@ describe('MeetingHeader', () => {
     );
     expect(container.textContent).toContain(AR.ministry);
     expect(container.textContent).toContain('435/2/ق');
+  });
+});
+
+describe('AboutDialog', () => {
+  it('shows the app identity, version and authorship credit', () => {
+    ui(<AboutDialog open onClose={vi.fn()} />);
+    expect(screen.getByText(AR.about)).toBeTruthy();
+    // The dialog renders in a portal, so assert against the whole document.
+    expect(document.body.textContent).toContain('1.0.0');
+    expect(document.body.textContent).toContain('محمد المعبدي');
+    expect(document.body.textContent).toContain('mbmaabdi@moj.gov.sa');
   });
 });
 

@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import {
   Badge,
   Body1,
+  Button,
   Caption1,
   Subtitle2,
   Switch,
@@ -13,11 +15,13 @@ import {
   WeatherSunnyRegular,
   PersonVoiceRegular,
   TimerRegular,
+  InfoRegular,
 } from '@fluentui/react-icons';
 import { formatDuration, judicialRoleLabel } from '@smj/shared';
 import { AR } from '../../../strings';
 import type { ThemeMode } from '../../../theme/themes';
 import { StatusBadge } from './StatusBadge';
+import { AboutDialog } from './AboutDialog';
 import type { SpeakerAssignment, TranscriptionStatus } from '../hooks/useTranscription';
 
 const useStyles = makeStyles({
@@ -97,6 +101,7 @@ export function MeetingHeader({
   onToggleDark,
 }: MeetingHeaderProps) {
   const styles = useStyles();
+  const [aboutOpen, setAboutOpen] = useState(false);
   const isLive = status === 'active' || status === 'paused';
 
   return (
@@ -151,7 +156,16 @@ export function MeetingHeader({
             />
           </div>
         </Tooltip>
+        <Tooltip content={AR.about} relationship="label">
+          <Button
+            appearance="subtle"
+            icon={<InfoRegular />}
+            aria-label={AR.about}
+            onClick={() => setAboutOpen(true)}
+          />
+        </Tooltip>
       </div>
+      <AboutDialog open={aboutOpen} onClose={() => setAboutOpen(false)} />
     </header>
   );
 }

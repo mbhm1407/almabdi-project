@@ -1,3 +1,8 @@
+/**
+ * المحضر الذكي — Smart Judicial Minutes (API server entrypoint)
+ * Designed and Developed by Mohammed Al-Maabdi (mbmaabdi@moj.gov.sa)
+ * Ministry of Justice — Kingdom of Saudi Arabia
+ */
 import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './lib/logger.js';

@@ -41,6 +41,14 @@ export const AR = {
   currentStatus: 'الحالة',
   currentSpeaker: 'المتحدث الحالي',
   darkMode: 'الوضع الليلي',
+  about: 'حول التطبيق',
+  version: 'الإصدار',
+  developer: 'المطوّر',
+  email: 'البريد الإلكتروني',
+  developedBy: 'صُمّم وطُوّر بواسطة محمد المعبدي',
+  developerEmail: 'mbmaabdi@moj.gov.sa',
+  aboutDescription:
+    'تطبيق اجتماعات لـ Microsoft Teams يوثّق الكلام العربي أثناء الجلسة نصًّا فوريًّا لمساعدة كاتب الضبط.',
 
   // Statistics
   speakersCount: 'عدد المتحدثين',

@@ -1,6 +1,7 @@
 {
   "name": "@smj/shared",
   "version": "1.0.0",
+  "author": "Mohammed Al-Maabdi <mbmaabdi@moj.gov.sa>",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",

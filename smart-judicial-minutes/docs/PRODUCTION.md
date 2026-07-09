@@ -113,3 +113,9 @@ Health probes:
   resumes automatically without losing prior text.
 - **API outage**: the client re-queues unsaved segments and retries; nothing is
   dropped once connectivity returns.
+
+
+---
+
+**Designed and Developed by Mohammed Al-Maabdi** (mbmaabdi@moj.gov.sa)
+Ministry of Justice — Kingdom of Saudi Arabia

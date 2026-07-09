@@ -1,6 +1,7 @@
 {
   "name": "smart-judicial-minutes",
   "version": "1.0.0",
+  "author": "Mohammed Al-Maabdi <mbmaabdi@moj.gov.sa>",
   "private": true,
   "description": "المحضر الذكي — Smart Judicial Minutes: a Microsoft Teams meeting app that produces a live Arabic transcript for the court clerk.",
   "license": "MIT",

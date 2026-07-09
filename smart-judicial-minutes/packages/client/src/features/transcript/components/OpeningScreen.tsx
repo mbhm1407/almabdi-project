@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   Button,
+  Caption2,
   Card,
   Field,
   Input,
@@ -54,6 +55,11 @@ const useStyles = makeStyles({
     height: '64px',
     fontSize: tokens.fontSizeBase500,
     fontWeight: tokens.fontWeightSemibold,
+  },
+  credit: {
+    color: tokens.colorNeutralForeground4,
+    textAlign: 'center',
+    marginBlockStart: tokens.spacingVerticalS,
   },
 });
 
@@ -163,6 +169,8 @@ export function OpeningScreen({ defaultTitle, clerkName, busy, onStart }: Openin
         >
           {AR.startDocumentation}
         </Button>
+
+        <Caption2 className={styles.credit}>{AR.developedBy}</Caption2>
       </Card>
     </div>
   );
