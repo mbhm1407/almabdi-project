@@ -34,6 +34,30 @@ export class AudioRecorder {
     this.recorder.start(1000); // gather data in 1s slices
   }
 
+  /** Temporarily stops writing audio without ending the recording. */
+  pause(): void {
+    if (this.recorder && this.recorder.state === 'recording') {
+      this.recorder.pause();
+    }
+  }
+
+  /** Resumes writing audio after a {@link pause}. */
+  resume(): void {
+    if (this.recorder && this.recorder.state === 'paused') {
+      this.recorder.resume();
+    }
+  }
+
+  /** Bytes captured so far across all buffered chunks. */
+  get capturedBytes(): number {
+    return this.chunks.reduce((total, chunk) => total + chunk.size, 0);
+  }
+
+  /** Whether a recording is currently in progress (recording or paused). */
+  get isActive(): boolean {
+    return this.recorder != null && this.recorder.state !== 'inactive';
+  }
+
   /** Stops recording and returns the assembled audio blob (or null if nothing captured). */
   stop(): Promise<Blob | null> {
     return new Promise((resolve) => {

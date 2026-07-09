@@ -33,10 +33,28 @@ export class SpeechTranscriber {
   private speechConfig: SpeechConfig | null = null;
   private refreshTimer: ReturnType<typeof setInterval> | null = null;
   private sessionStart = 0;
+  private paused = false;
   /** Maps interim utterance ids so a final result overwrites its interim row. */
   private readonly activeBySpeaker = new Map<string, string>();
 
   constructor(private readonly callbacks: TranscriberCallbacks) {}
+
+  /**
+   * Pauses transcription. The recognizer keeps its diarization session alive but
+   * incoming results are dropped, so nothing is captured while paused.
+   */
+  pause(): void {
+    this.paused = true;
+  }
+
+  /** Resumes capturing recognized results after a {@link pause}. */
+  resume(): void {
+    this.paused = false;
+  }
+
+  get isPaused(): boolean {
+    return this.paused;
+  }
 
   async start(): Promise<void> {
     const token = await apiClient.getSpeechToken();
@@ -77,6 +95,7 @@ export class SpeechTranscriber {
   }
 
   private handleEvent(e: ConversationTranscriptionEventArgs, isFinal: boolean): void {
+    if (this.paused) return;
     const text = e.result.text?.trim();
     if (!text) return;
     if (isFinal && e.result.reason !== ResultReason.RecognizedSpeech) return;
@@ -98,6 +117,8 @@ export class SpeechTranscriber {
       id,
       speakerId,
       speakerLabel: speakerId,
+      // Role is resolved by the transcription hook from the clerk's assignments.
+      speakerRole: 'unassigned',
       text,
       timestamp: new Date(this.sessionStart + offsetMs).toISOString(),
       offsetMs,

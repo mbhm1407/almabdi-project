@@ -7,6 +7,21 @@ afterEach(() => {
   cleanup();
 });
 
+// jsdom lacks ResizeObserver, used by the virtualized transcript list.
+if (!('ResizeObserver' in globalThis)) {
+  class ResizeObserverStub {
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+  }
+  globalThis.ResizeObserver = ResizeObserverStub as unknown as typeof ResizeObserver;
+}
+
+// jsdom does not implement element scrolling; stub it for the virtualizer.
+if (!Element.prototype.scrollTo) {
+  Element.prototype.scrollTo = () => {};
+}
+
 // jsdom lacks matchMedia, which Fluent UI queries for reduced-motion.
 if (!window.matchMedia) {
   window.matchMedia = ((query: string) => ({

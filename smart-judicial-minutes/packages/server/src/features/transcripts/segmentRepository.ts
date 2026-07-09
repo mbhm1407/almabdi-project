@@ -1,5 +1,5 @@
 import { getPool, sql } from '../../infrastructure/db/pool.js';
-import type { TranscriptSegment } from '@smj/shared';
+import type { JudicialRole, TranscriptSegment } from '@smj/shared';
 
 function mapRow(r: Record<string, unknown>): TranscriptSegment {
   return {
@@ -7,6 +7,7 @@ function mapRow(r: Record<string, unknown>): TranscriptSegment {
     sessionId: r.sessionId as string,
     speakerId: r.speakerId as string,
     speakerLabel: r.speakerLabel as string,
+    speakerRole: ((r.speakerRole as string | null) ?? 'unassigned') as JudicialRole,
     text: r.text as string,
     timestamp: new Date(r.timestamp as string).toISOString(),
     offsetMs: Number(r.offsetMs),
@@ -35,6 +36,7 @@ export const segmentRepository = {
           .input('sessionId', sql.UniqueIdentifier, s.sessionId)
           .input('speakerId', sql.NVarChar(128), s.speakerId)
           .input('speakerLabel', sql.NVarChar(128), s.speakerLabel)
+          .input('speakerRole', sql.NVarChar(32), s.speakerRole)
           .input('text', sql.NVarChar(sql.MAX), s.text)
           .input('timestamp', sql.DateTimeOffset, s.timestamp)
           .input('offsetMs', sql.BigInt, s.offsetMs)
@@ -43,11 +45,11 @@ export const segmentRepository = {
             MERGE dbo.TranscriptSegments AS target
             USING (SELECT @id AS id) AS src ON target.id = src.id
             WHEN MATCHED THEN UPDATE SET
-              speakerId = @speakerId, speakerLabel = @speakerLabel, text = @text,
+              speakerId = @speakerId, speakerLabel = @speakerLabel, speakerRole = @speakerRole, text = @text,
               timestamp = @timestamp, offsetMs = @offsetMs, durationMs = @durationMs, isFinal = @isFinal
             WHEN NOT MATCHED THEN INSERT
-              (id, sessionId, speakerId, speakerLabel, text, timestamp, offsetMs, durationMs, isFinal)
-              VALUES (@id, @sessionId, @speakerId, @speakerLabel, @text, @timestamp, @offsetMs, @durationMs, @isFinal);
+              (id, sessionId, speakerId, speakerLabel, speakerRole, text, timestamp, offsetMs, durationMs, isFinal)
+              VALUES (@id, @sessionId, @speakerId, @speakerLabel, @speakerRole, @text, @timestamp, @offsetMs, @durationMs, @isFinal);
           `);
       }
       await tx.commit();

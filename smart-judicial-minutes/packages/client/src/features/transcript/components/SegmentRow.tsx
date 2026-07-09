@@ -1,120 +1,146 @@
 import { memo, useState } from 'react';
 import {
+  Badge,
   Button,
   Caption1,
-  Input,
-  Text,
+  Tooltip,
   makeStyles,
   mergeClasses,
   tokens,
 } from '@fluentui/react-components';
-import { EditRegular } from '@fluentui/react-icons';
-import type { TranscriptSegment } from '@smj/shared';
+import { CopyRegular, CheckmarkRegular } from '@fluentui/react-icons';
+import { judicialRoleLabel, type JudicialRole, type TranscriptSegment } from '@smj/shared';
+import { formatClock } from '../../../services/format';
+import { highlightChunks } from '../search';
+import { SpeakerAssignPopover } from './SpeakerAssignPopover';
+import type { Participant } from '../types';
 
 const useStyles = makeStyles({
   row: {
     display: 'flex',
-    gap: tokens.spacingHorizontalM,
-    paddingBlock: tokens.spacingVerticalS,
-    paddingInline: tokens.spacingHorizontalS,
+    gap: tokens.spacingHorizontalL,
+    paddingBlock: tokens.spacingVerticalM,
+    paddingInline: tokens.spacingHorizontalL,
     borderRadius: tokens.borderRadiusMedium,
+    borderBottom: `${tokens.strokeWidthThin} solid ${tokens.colorNeutralStroke3}`,
   },
-  interim: {
-    opacity: 0.6,
-    fontStyle: 'italic',
+  activeMatch: {
+    backgroundColor: tokens.colorNeutralBackground1Selected,
+    outline: `${tokens.strokeWidthThick} solid ${tokens.colorBrandStroke1}`,
+    outlineOffset: '-2px',
   },
+  interim: { opacity: 0.65 },
   meta: {
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-start',
-    minWidth: '120px',
     gap: tokens.spacingVerticalXXS,
+    minWidth: '140px',
+    maxWidth: '160px',
   },
-  time: {
-    color: tokens.colorNeutralForeground3,
-    fontVariantNumeric: 'tabular-nums',
-  },
-  speaker: {
-    fontWeight: tokens.fontWeightSemibold,
-    color: tokens.colorBrandForeground1,
-    display: 'flex',
-    alignItems: 'center',
-    gap: tokens.spacingHorizontalXXS,
-  },
+  time: { color: tokens.colorNeutralForeground3, fontVariantNumeric: 'tabular-nums' },
+  speakerLine: { display: 'flex', alignItems: 'center', gap: tokens.spacingHorizontalXXS },
+  speakerName: { fontWeight: tokens.fontWeightSemibold, color: tokens.colorNeutralForeground1 },
+  body: { flex: 1, display: 'flex', alignItems: 'flex-start', gap: tokens.spacingHorizontalS },
   text: {
     flex: 1,
-    lineHeight: tokens.lineHeightBase400,
+    fontSize: tokens.fontSizeBase500,
+    lineHeight: tokens.lineHeightBase500,
     whiteSpace: 'pre-wrap',
     wordBreak: 'break-word',
+    color: tokens.colorNeutralForeground1,
   },
-  editRow: { display: 'flex', gap: tokens.spacingHorizontalXS, alignItems: 'center' },
+  mark: {
+    backgroundColor: tokens.colorPaletteYellowBackground2,
+    color: tokens.colorNeutralForeground1,
+    borderRadius: tokens.borderRadiusSmall,
+    paddingInline: '1px',
+  },
+  copyBtn: { flexShrink: 0 },
 });
-
-function formatClock(timestamp: string): string {
-  return new Date(timestamp).toLocaleTimeString('ar-SA', {
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
-  });
-}
 
 interface SegmentRowProps {
   segment: TranscriptSegment;
-  interim?: boolean;
-  onRelabel: (speakerId: string, label: string) => void;
+  participants: Participant[];
+  searchTerm: string;
+  isActiveMatch: boolean;
+  onAssign: (speakerId: string, label: string, role: JudicialRole) => void;
 }
 
-/** A single utterance line: timestamp, speaker (editable) and Arabic text. */
+/** A single utterance: timestamp, speaker name + judicial role, Arabic text. */
 export const SegmentRow = memo(function SegmentRow({
   segment,
-  interim,
-  onRelabel,
+  participants,
+  searchTerm,
+  isActiveMatch,
+  onAssign,
 }: SegmentRowProps) {
   const styles = useStyles();
-  const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(segment.speakerLabel);
+  const [copied, setCopied] = useState(false);
+  const hasRole = segment.speakerRole && segment.speakerRole !== 'unassigned';
 
-  const commit = () => {
-    onRelabel(segment.speakerId, draft);
-    setEditing(false);
+  const copyLine = async () => {
+    const line = `[${formatClock(segment.timestamp)}] ${segment.speakerLabel}${
+      hasRole ? ` (${judicialRoleLabel(segment.speakerRole)})` : ''
+    }: ${segment.text}`;
+    try {
+      await navigator.clipboard.writeText(line);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      /* clipboard unavailable */
+    }
   };
 
   return (
-    <div className={mergeClasses(styles.row, interim && styles.interim)}>
+    <div
+      className={mergeClasses(
+        styles.row,
+        !segment.isFinal && styles.interim,
+        isActiveMatch && styles.activeMatch,
+      )}
+    >
       <div className={styles.meta}>
         <Caption1 className={styles.time}>{formatClock(segment.timestamp)}</Caption1>
-        {editing ? (
-          <div className={styles.editRow}>
-            <Input
-              size="small"
-              value={draft}
-              onChange={(_e, data) => setDraft(data.value)}
-              onKeyDown={(e) => e.key === 'Enter' && commit()}
-              aria-label="اسم المتحدث"
-              autoFocus
-            />
-            <Button size="small" appearance="primary" onClick={commit}>
-              حفظ
-            </Button>
-          </div>
-        ) : (
-          <span className={styles.speaker}>
-            {segment.speakerLabel}
-            <Button
-              size="small"
-              appearance="transparent"
-              icon={<EditRegular />}
-              aria-label="تعديل اسم المتحدث"
-              onClick={() => {
-                setDraft(segment.speakerLabel);
-                setEditing(true);
-              }}
-            />
-          </span>
+        <div className={styles.speakerLine}>
+          <span className={styles.speakerName}>{segment.speakerLabel}</span>
+          <SpeakerAssignPopover
+            currentLabel={segment.speakerLabel}
+            currentRole={segment.speakerRole}
+            participants={participants}
+            onAssign={(label, role) => onAssign(segment.speakerId, label, role)}
+          />
+        </div>
+        {hasRole && (
+          <Badge appearance="tint" color="brand" size="small">
+            {judicialRoleLabel(segment.speakerRole)}
+          </Badge>
         )}
       </div>
-      <Text className={styles.text}>{segment.text}</Text>
+
+      <div className={styles.body}>
+        <span className={styles.text}>
+          {highlightChunks(segment.text, searchTerm).map((chunk, i) =>
+            chunk.match ? (
+              <mark key={i} className={styles.mark}>
+                {chunk.text}
+              </mark>
+            ) : (
+              <span key={i}>{chunk.text}</span>
+            ),
+          )}
+        </span>
+        <Tooltip content={copied ? 'تم النسخ' : 'نسخ السطر'} relationship="label">
+          <Button
+            className={styles.copyBtn}
+            size="small"
+            appearance="transparent"
+            icon={copied ? <CheckmarkRegular /> : <CopyRegular />}
+            aria-label="نسخ السطر"
+            onClick={() => void copyLine()}
+          />
+        </Tooltip>
+      </div>
     </div>
   );
 });

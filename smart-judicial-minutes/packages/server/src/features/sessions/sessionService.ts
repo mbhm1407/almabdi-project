@@ -14,6 +14,7 @@ export const sessionService = {
       id: randomUUID(),
       meetingId: input.meetingId,
       meetingTitle: input.meetingTitle,
+      caseNumber: input.caseNumber?.trim() ? input.caseNumber.trim() : null,
       tenantId: user.tenantId,
       createdBy: user.id,
       status: 'active',

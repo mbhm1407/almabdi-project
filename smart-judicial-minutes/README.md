@@ -31,6 +31,29 @@ Its only job is fast, accurate live transcription of the hearing.
 | 11 | RTL | Whole UI is right-to-left |
 | 12 | Responsive UI | Fluent UI v9, fits the side panel |
 
+### Judicial enhancements
+
+Built for a Ministry of Justice hearing, the app adds a courtroom-focused layer
+on top of the core transcription:
+
+- **Case number** captured at setup and printed on every export.
+- **Judicial roles** — assign each speaker to Judge / Clerk / Plaintiff /
+  Defendant / Lawyer / Witness / Observer. Lines show the real Teams display
+  name **and** the role (`القاضي — أحمد الحربي`).
+- **Pre-hearing setup** — the clerk confirms the title, enters the case number,
+  and prepares the participant roster before starting.
+- **Pause / resume** transcription without ending the session.
+- **Current speaker**, **elapsed time**, and a clear **recording indicator** in
+  the header.
+- **Search with next / previous navigation** and highlight-all matches.
+- **Copy** a single line or the entire transcript.
+- **Recordings panel** — play / pause / download with duration and size.
+- **Friendly error dialogs** for speech disconnects, network loss, Azure
+  unavailability, permission denied, and token expiry.
+- **Virtualized transcript** so long hearings stay smooth.
+- **Large, readable Arabic** typography and a distraction-free layout that shows
+  only the essential controls while recording.
+
 ## Tech stack
 
 - **Frontend:** React + TypeScript + **Fluent UI v9**, **Microsoft Teams JS SDK v2**,

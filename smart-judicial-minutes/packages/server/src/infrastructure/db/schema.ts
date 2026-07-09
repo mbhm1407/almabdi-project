@@ -12,6 +12,7 @@ BEGIN
     id               UNIQUEIDENTIFIER NOT NULL PRIMARY KEY,
     meetingId        NVARCHAR(256)    NOT NULL,
     meetingTitle     NVARCHAR(512)    NOT NULL,
+    caseNumber       NVARCHAR(128)    NULL,
     tenantId         NVARCHAR(128)    NOT NULL,
     createdBy        NVARCHAR(128)    NOT NULL,
     status           NVARCHAR(16)     NOT NULL,
@@ -24,6 +25,10 @@ BEGIN
   CREATE INDEX IX_Sessions_tenant ON dbo.Sessions (tenantId);
 END;
 
+-- Additive migration for databases created before caseNumber existed.
+IF COL_LENGTH('dbo.Sessions', 'caseNumber') IS NULL
+  ALTER TABLE dbo.Sessions ADD caseNumber NVARCHAR(128) NULL;
+
 IF OBJECT_ID('dbo.TranscriptSegments', 'U') IS NULL
 BEGIN
   CREATE TABLE dbo.TranscriptSegments (
@@ -31,6 +36,7 @@ BEGIN
     sessionId    UNIQUEIDENTIFIER NOT NULL,
     speakerId    NVARCHAR(128)    NOT NULL,
     speakerLabel NVARCHAR(128)    NOT NULL,
+    speakerRole  NVARCHAR(32)     NOT NULL DEFAULT 'unassigned',
     text         NVARCHAR(MAX)    NOT NULL,
     timestamp    DATETIMEOFFSET   NOT NULL,
     offsetMs     BIGINT           NOT NULL,
@@ -42,6 +48,11 @@ BEGIN
   CREATE INDEX IX_Segments_session ON dbo.TranscriptSegments (sessionId, offsetMs);
   CREATE FULLTEXT CATALOG smj_ft AS DEFAULT;
 END;
+
+-- Additive migration for databases created before speakerRole existed.
+IF COL_LENGTH('dbo.TranscriptSegments', 'speakerRole') IS NULL
+  ALTER TABLE dbo.TranscriptSegments ADD speakerRole NVARCHAR(32) NOT NULL
+    CONSTRAINT DF_Segments_speakerRole DEFAULT 'unassigned';
 
 IF OBJECT_ID('dbo.AuditLog', 'U') IS NULL
 BEGIN

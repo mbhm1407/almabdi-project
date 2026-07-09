@@ -100,6 +100,9 @@ export const apiClient = {
       headers: { 'Content-Type': audio.type || 'audio/webm' },
     });
   },
+  getRecordingUrl(sessionId: string): Promise<{ url: string }> {
+    return request(`/api/sessions/${sessionId}/recording`);
+  },
 };
 
 export { ApiClientError };

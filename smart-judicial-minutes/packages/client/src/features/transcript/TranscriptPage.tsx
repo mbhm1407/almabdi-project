@@ -1,37 +1,23 @@
-import { useState } from 'react';
-import {
-  MessageBar,
-  MessageBarActions,
-  MessageBarBody,
-  Button,
-  makeStyles,
-  tokens,
-} from '@fluentui/react-components';
-import { DismissRegular } from '@fluentui/react-icons';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { makeStyles } from '@fluentui/react-components';
+import { judicialRoleLabel } from '@smj/shared';
 import type { TeamsMeetingContext } from '../../teams/teamsClient';
 import type { ThemeMode } from '../../theme/themes';
+import { formatClock } from '../../services/format';
+import { toFriendlyError } from '../../services/errorMessages';
 import { useTranscription } from './hooks/useTranscription';
 import { MeetingHeader } from './components/MeetingHeader';
 import { TranscriptToolbar } from './components/TranscriptToolbar';
 import { TranscriptList } from './components/TranscriptList';
+import { SessionSetup } from './components/SessionSetup';
+import { ErrorDialog } from './components/ErrorDialog';
+import { RecordingsPanel } from './components/RecordingsPanel';
+import { cycleIndex, matchingSegmentIds } from './search';
+import type { Participant } from './types';
 
 const useStyles = makeStyles({
-  page: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-    minHeight: 0,
-  },
-  errorBar: {
-    marginInline: tokens.spacingHorizontalL,
-    marginBlockStart: tokens.spacingVerticalS,
-  },
-  body: {
-    flex: 1,
-    minHeight: 0,
-    display: 'flex',
-    flexDirection: 'column',
-  },
+  page: { display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 },
+  body: { flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' },
 });
 
 interface TranscriptPageProps {
@@ -41,66 +27,151 @@ interface TranscriptPageProps {
 }
 
 /**
- * The only screen in the app. Everything the clerk needs is here: meeting info,
- * start/stop, recording status, the live Arabic transcript, search and export.
+ * The single hearing screen. Before starting it shows the setup (case number +
+ * roster); during and after the hearing it shows the distraction-free live
+ * transcript with status, search, export and recordings.
  */
 export function TranscriptPage({ context, themeMode, onToggleDark }: TranscriptPageProps) {
   const styles = useStyles();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [localError, setLocalError] = useState<string | null>(null);
-  const { status, session, segments, error, isSaving, start, stop, relabelSpeaker, clearError } =
-    useTranscription(context);
+  const {
+    status,
+    session,
+    segments,
+    currentSpeaker,
+    elapsedMs,
+    recording,
+    error,
+    isSaving,
+    start,
+    pause,
+    resume,
+    stop,
+    assignSpeaker,
+    clearError,
+  } = useTranscription(context);
 
-  const activeError = error ?? localError;
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [localError, setLocalError] = useState<unknown>(null);
+  const [recordingsOpen, setRecordingsOpen] = useState(false);
+
+  const matchIds = useMemo(() => matchingSegmentIds(segments, searchTerm), [segments, searchTerm]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+  }, [searchTerm]);
+
+  const clampedIndex = matchIds.length ? Math.min(activeIndex, matchIds.length - 1) : -1;
+  const activeMatchId = clampedIndex >= 0 ? matchIds[clampedIndex]! : null;
+
+  const nextMatch = useCallback(
+    () => setActiveIndex((i) => cycleIndex(i, 1, matchIds.length)),
+    [matchIds.length],
+  );
+  const prevMatch = useCallback(
+    () => setActiveIndex((i) => cycleIndex(i, -1, matchIds.length)),
+    [matchIds.length],
+  );
+
+  const friendlyError = useMemo(() => {
+    const err = error ?? localError;
+    return err ? toFriendlyError(err) : null;
+  }, [error, localError]);
+
   const dismissError = () => {
     setLocalError(null);
     clearError();
   };
 
+  const handleStart = (setup: {
+    meetingTitle: string;
+    caseNumber: string;
+    participants: Participant[];
+  }) => {
+    setParticipants(setup.participants);
+    void start(setup);
+  };
+
+  const copyAll = useCallback(() => {
+    const text = segments
+      .filter((s) => s.isFinal)
+      .map((s) => {
+        const role =
+          s.speakerRole && s.speakerRole !== 'unassigned'
+            ? ` (${judicialRoleLabel(s.speakerRole)})`
+            : '';
+        return `[${formatClock(s.timestamp)}] ${s.speakerLabel}${role}: ${s.text}`;
+      })
+      .join('\n');
+    void navigator.clipboard?.writeText(text).catch(() => undefined);
+  }, [segments]);
+
+  const hasRecording = recording !== null || Boolean(session?.recordingBlobName);
+
   return (
     <div className={styles.page}>
       <MeetingHeader
-        context={context}
+        meetingTitle={session?.meetingTitle ?? context.meetingTitle}
+        caseNumber={session?.caseNumber ?? null}
+        clerkName={context.userName}
         status={status}
+        elapsedMs={elapsedMs}
+        currentSpeaker={currentSpeaker}
         themeMode={themeMode}
         onToggleDark={onToggleDark}
       />
 
-      <TranscriptToolbar
-        status={status}
-        sessionId={session?.id ?? null}
-        isSaving={isSaving}
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        onStart={() => void start()}
-        onStop={() => void stop()}
-        onError={setLocalError}
-      />
-
-      {activeError && (
-        <MessageBar intent="error" className={styles.errorBar}>
-          <MessageBarBody>{activeError}</MessageBarBody>
-          <MessageBarActions
-            containerAction={
-              <Button
-                appearance="transparent"
-                icon={<DismissRegular />}
-                aria-label="إغلاق"
-                onClick={dismissError}
-              />
-            }
+      {!session ? (
+        <SessionSetup
+          defaultTitle={context.meetingTitle}
+          clerkName={context.userName}
+          busy={status === 'starting'}
+          onStart={handleStart}
+        />
+      ) : (
+        <>
+          <TranscriptToolbar
+            status={status}
+            sessionId={session.id}
+            isSaving={isSaving}
+            hasSegments={segments.some((s) => s.isFinal)}
+            hasRecording={hasRecording}
+            searchTerm={searchTerm}
+            matchCount={matchIds.length}
+            activeIndex={clampedIndex}
+            onSearchChange={setSearchTerm}
+            onNextMatch={nextMatch}
+            onPrevMatch={prevMatch}
+            onPause={pause}
+            onResume={resume}
+            onStop={() => void stop()}
+            onCopyAll={copyAll}
+            onOpenRecordings={() => setRecordingsOpen(true)}
+            onError={setLocalError}
           />
-        </MessageBar>
+          <div className={styles.body}>
+            <TranscriptList
+              segments={segments}
+              participants={participants}
+              searchTerm={searchTerm}
+              matchIds={matchIds}
+              activeMatchId={activeMatchId}
+              autoScroll={status === 'active'}
+              hasStarted
+              onAssign={assignSpeaker}
+            />
+          </div>
+        </>
       )}
 
-      <div className={styles.body}>
-        <TranscriptList
-          segments={segments}
-          searchTerm={searchTerm}
-          autoScroll={status === 'active'}
-          onRelabel={relabelSpeaker}
-        />
-      </div>
+      <ErrorDialog error={friendlyError} onDismiss={dismissError} />
+      <RecordingsPanel
+        open={recordingsOpen}
+        sessionId={session?.id ?? null}
+        recording={recording}
+        onClose={() => setRecordingsOpen(false)}
+      />
     </div>
   );
 }

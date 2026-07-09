@@ -6,6 +6,7 @@ function mapRow(r: Record<string, unknown>): TranscriptionSession {
     id: r.id as string,
     meetingId: r.meetingId as string,
     meetingTitle: r.meetingTitle as string,
+    caseNumber: (r.caseNumber as string | null) ?? null,
     tenantId: r.tenantId as string,
     createdBy: r.createdBy as string,
     status: r.status as TranscriptionSession['status'],
@@ -24,14 +25,15 @@ export const sessionRepository = {
       .input('id', sql.UniqueIdentifier, session.id)
       .input('meetingId', sql.NVarChar(256), session.meetingId)
       .input('meetingTitle', sql.NVarChar(512), session.meetingTitle)
+      .input('caseNumber', sql.NVarChar(128), session.caseNumber)
       .input('tenantId', sql.NVarChar(128), session.tenantId)
       .input('createdBy', sql.NVarChar(128), session.createdBy)
       .input('status', sql.NVarChar(16), session.status)
       .input('locale', sql.NVarChar(16), session.locale)
       .input('startedAt', sql.DateTimeOffset, session.startedAt)
       .query(
-        `INSERT INTO dbo.Sessions (id, meetingId, meetingTitle, tenantId, createdBy, status, locale, startedAt)
-         VALUES (@id, @meetingId, @meetingTitle, @tenantId, @createdBy, @status, @locale, @startedAt)`,
+        `INSERT INTO dbo.Sessions (id, meetingId, meetingTitle, caseNumber, tenantId, createdBy, status, locale, startedAt)
+         VALUES (@id, @meetingId, @meetingTitle, @caseNumber, @tenantId, @createdBy, @status, @locale, @startedAt)`,
       );
     return session;
   },

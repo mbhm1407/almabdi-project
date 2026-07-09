@@ -1,4 +1,11 @@
-import type { ExportFormat, TranscriptionSession, TranscriptSegment } from '@smj/shared';
+import {
+  formatDuration,
+  judicialRoleLabel,
+  sessionDurationMs,
+  type ExportFormat,
+  type TranscriptionSession,
+  type TranscriptSegment,
+} from '@smj/shared';
 
 export interface ExportResult {
   buffer: Buffer;
@@ -16,10 +23,47 @@ function formatClock(timestamp: string): string {
   });
 }
 
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('ar-SA', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+/** The speaker heading shown per entry: "Name — Role" or just one if missing. */
+function speakerHeading(segment: TranscriptSegment): string {
+  const role = judicialRoleLabel(segment.speakerRole);
+  const name = segment.speakerLabel?.trim();
+  if (name && segment.speakerRole && segment.speakerRole !== 'unassigned') {
+    return `${role} — ${name}`;
+  }
+  return name || role;
+}
+
+interface DocumentMeta {
+  title: string;
+  caseNumber: string;
+  date: string;
+  duration: string;
+  entries: string;
+}
+
+function buildMeta(session: TranscriptionSession, segments: TranscriptSegment[]): DocumentMeta {
+  return {
+    title: session.meetingTitle,
+    caseNumber: session.caseNumber?.trim() || 'غير محدد',
+    date: formatDate(session.startedAt),
+    duration: formatDuration(sessionDurationMs(session)),
+    entries: String(segments.filter((s) => s.isFinal).length),
+  };
+}
+
 /**
  * Renders a transcript to TXT, DOCX (Office Open XML), or PDF. Generation is
  * dependency-light and fully RTL-aware so exported minutes read correctly in
- * Arabic.
+ * Arabic, and every export carries the hearing metadata (title, case number,
+ * date and duration).
  */
 export const exportService = {
   export(
@@ -38,27 +82,32 @@ export const exportService = {
   },
 
   toTxt(session: TranscriptionSession, segments: TranscriptSegment[]): ExportResult {
+    const meta = buildMeta(session, segments);
     const lines: string[] = [
-      `المحضر الذكي — نص الجلسة`,
-      `الجلسة: ${session.meetingTitle}`,
-      `التاريخ: ${new Date(session.startedAt).toLocaleString('ar-SA')}`,
-      '='.repeat(60),
+      'المحضر الذكي — نص الجلسة',
+      '',
+      `عنوان الجلسة: ${meta.title}`,
+      `رقم القضية: ${meta.caseNumber}`,
+      `التاريخ: ${meta.date}`,
+      `مدة الجلسة: ${meta.duration}`,
+      `عدد المداخلات: ${meta.entries}`,
+      '='.repeat(64),
       '',
     ];
-    for (const s of segments) {
-      lines.push(`[${formatClock(s.timestamp)}] ${s.speakerLabel}:`);
+    for (const s of segments.filter((seg) => seg.isFinal)) {
+      lines.push(`[${formatClock(s.timestamp)}] ${speakerHeading(s)}`);
       lines.push(s.text);
       lines.push('');
     }
     return {
-      buffer: Buffer.from(lines.join('\n'), 'utf-8'),
+      buffer: Buffer.from(`\uFEFF${lines.join('\r\n')}`, 'utf-8'),
       contentType: 'text/plain; charset=utf-8',
       filename: this.filename(session, 'txt'),
     };
   },
 
   toDocx(session: TranscriptionSession, segments: TranscriptSegment[]): ExportResult {
-    const buffer = buildDocx(session, segments, formatClock);
+    const buffer = buildDocx(session, segments);
     return {
       buffer,
       contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -67,7 +116,7 @@ export const exportService = {
   },
 
   toPdf(session: TranscriptionSession, segments: TranscriptSegment[]): ExportResult {
-    const buffer = buildPdf(session, segments, formatClock);
+    const buffer = buildPdf(session, segments);
     return {
       buffer,
       contentType: 'application/pdf',
@@ -76,7 +125,8 @@ export const exportService = {
   },
 
   filename(session: TranscriptionSession, ext: string): string {
-    const safe = session.meetingTitle.replace(/[^\p{L}\p{N}_-]+/gu, '_').slice(0, 60);
+    const base = session.caseNumber?.trim() || session.meetingTitle;
+    const safe = base.replace(/[^\p{L}\p{N}_-]+/gu, '_').slice(0, 60);
     return `transcript_${safe}_${session.id.slice(0, 8)}.${ext}`;
   },
 };
@@ -93,33 +143,42 @@ function xmlEscape(text: string): string {
     .replace(/"/g, '&quot;');
 }
 
-function docParagraph(text: string, opts: { bold?: boolean; heading?: boolean } = {}): string {
-  const runProps = opts.bold ? '<w:rPr><w:b/><w:bCs/></w:rPr>' : '';
-  const size = opts.heading ? '<w:sz w:val="32"/><w:szCs w:val="32"/>' : '';
+function docParagraph(
+  text: string,
+  opts: { bold?: boolean; size?: number; spaceAfter?: number } = {},
+): string {
+  const sizeHalfPts = opts.size ?? 24; // half-points (24 = 12pt)
   const rPr =
-    opts.bold || opts.heading
-      ? `<w:rPr>${opts.bold ? '<w:b/><w:bCs/>' : ''}${size}</w:rPr>`
-      : runProps;
+    `<w:rPr>${opts.bold ? '<w:b/><w:bCs/>' : ''}` +
+    `<w:sz w:val="${sizeHalfPts}"/><w:szCs w:val="${sizeHalfPts}"/><w:rtl/></w:rPr>`;
+  const spacing = opts.spaceAfter != null ? `<w:spacing w:after="${opts.spaceAfter}"/>` : '';
   return (
-    `<w:p><w:pPr><w:bidi/><w:jc w:val="right"/></w:pPr>` +
-    `<w:r>${rPr}<w:rPr><w:rtl/></w:rPr><w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r></w:p>`
+    `<w:p><w:pPr><w:bidi/>${spacing}<w:jc w:val="right"/></w:pPr>` +
+    `<w:r>${rPr}<w:t xml:space="preserve">${xmlEscape(text)}</w:t></w:r></w:p>`
   );
 }
 
-function buildDocx(
-  session: TranscriptionSession,
-  segments: TranscriptSegment[],
-  clock: (t: string) => string,
-): Buffer {
-  const body = [
-    docParagraph('المحضر الذكي — نص الجلسة', { heading: true, bold: true }),
-    docParagraph(`الجلسة: ${session.meetingTitle}`, { bold: true }),
-    docParagraph(`التاريخ: ${new Date(session.startedAt).toLocaleString('ar-SA')}`),
-    ...segments.flatMap((s) => [
-      docParagraph(`[${clock(s.timestamp)}] ${s.speakerLabel}`, { bold: true }),
-      docParagraph(s.text),
-    ]),
-  ].join('');
+function buildDocx(session: TranscriptionSession, segments: TranscriptSegment[]): Buffer {
+  const meta = buildMeta(session, segments);
+  const header = [
+    docParagraph('المحضر الذكي — نص الجلسة', { bold: true, size: 36, spaceAfter: 120 }),
+    docParagraph(`عنوان الجلسة: ${meta.title}`, { bold: true, spaceAfter: 40 }),
+    docParagraph(`رقم القضية: ${meta.caseNumber}`, { spaceAfter: 40 }),
+    docParagraph(`التاريخ: ${meta.date}`, { spaceAfter: 40 }),
+    docParagraph(`مدة الجلسة: ${meta.duration}`, { spaceAfter: 40 }),
+    docParagraph(`عدد المداخلات: ${meta.entries}`, { spaceAfter: 200 }),
+  ];
+  const bodyEntries = segments
+    .filter((s) => s.isFinal)
+    .flatMap((s) => [
+      docParagraph(`[${formatClock(s.timestamp)}]  ${speakerHeading(s)}`, {
+        bold: true,
+        size: 22,
+        spaceAfter: 20,
+      }),
+      docParagraph(s.text, { size: 26, spaceAfter: 160 }),
+    ]);
+  const body = [...header, ...bodyEntries].join('');
 
   const documentXml =
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
@@ -148,34 +207,53 @@ function buildDocx(
 }
 
 // ---------------------------------------------------------------------------
-// PDF (minimal single-stream PDF; text encoded as UTF-16BE for Arabic support)
+// PDF (dependency-free writer; UTF-16BE text so Arabic survives to the viewer)
 // ---------------------------------------------------------------------------
 
-function buildPdf(
-  session: TranscriptionSession,
-  segments: TranscriptSegment[],
-  clock: (t: string) => string,
-): Buffer {
-  // A dependency-free PDF writer. We emit text using the standard Helvetica
-  // font; Arabic glyphs are written using Unicode escapes so any compliant
-  // reader with a fallback font renders them. Lines are laid out top-to-bottom.
+/** Wraps a line to a maximum character width, preserving whole words. */
+function wrapLine(text: string, maxChars: number): string[] {
+  if (text.length <= maxChars) return [text];
+  const words = text.split(/\s+/);
+  const out: string[] = [];
+  let current = '';
+  for (const word of words) {
+    if (current.length + word.length + 1 > maxChars) {
+      if (current) out.push(current);
+      current = word;
+    } else {
+      current = current ? `${current} ${word}` : word;
+    }
+  }
+  if (current) out.push(current);
+  return out.length ? out : [text];
+}
+
+function buildPdf(session: TranscriptionSession, segments: TranscriptSegment[]): Buffer {
+  const meta = buildMeta(session, segments);
+  const maxChars = 90;
   const lines: string[] = [
-    'Smart Judicial Minutes / المحضر الذكي',
-    `Session: ${session.meetingTitle}`,
-    `Date: ${new Date(session.startedAt).toISOString()}`,
+    'Smart Judicial Minutes / المحضر الذكي — نص الجلسة',
+    '',
+    `عنوان الجلسة: ${meta.title}`,
+    `رقم القضية: ${meta.caseNumber}`,
+    `التاريخ: ${meta.date}`,
+    `مدة الجلسة: ${meta.duration}`,
+    `عدد المداخلات: ${meta.entries}`,
+    '────────────────────────────────────────',
     '',
   ];
-  for (const s of segments) {
-    lines.push(`[${clock(s.timestamp)}] ${s.speakerLabel}:`);
-    lines.push(s.text);
+  for (const s of segments.filter((seg) => seg.isFinal)) {
+    lines.push(`[${formatClock(s.timestamp)}]  ${speakerHeading(s)}`);
+    for (const wrapped of wrapLine(s.text, maxChars)) lines.push(wrapped);
     lines.push('');
   }
   return renderPdf(lines);
 }
 
-function pdfEscapeText(text: string): string {
-  // PDF literal strings: escape backslash and parentheses.
-  return text.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+/** Encodes a string as a PDF UTF-16BE hex string with a BOM. */
+function pdfHexUtf16(text: string): string {
+  const buf = Buffer.from(`\uFEFF${text}`, 'utf16le').swap16();
+  return `<${buf.toString('hex')}>`;
 }
 
 function renderPdf(lines: string[]): Buffer {
@@ -185,7 +263,6 @@ function renderPdf(lines: string[]): Buffer {
   const leading = 16;
   const maxLinesPerPage = Math.floor((pageHeight - 2 * margin) / leading);
 
-  // Chunk lines into pages.
   const pages: string[][] = [];
   for (let i = 0; i < Math.max(lines.length, 1); i += maxLinesPerPage) {
     pages.push(lines.slice(i, i + maxLinesPerPage));
@@ -196,11 +273,13 @@ function renderPdf(lines: string[]): Buffer {
   const pageObjStart = 4;
   const contentObjStart = pageObjStart + pages.length;
 
-  // Kids references
   const kids = pages.map((_, i) => `${pageObjStart + i} 0 R`).join(' ');
 
   objects[1] = `<< /Type /Catalog /Pages 2 0 R >>`;
   objects[2] = `<< /Type /Pages /Count ${pages.length} /Kids [${kids}] >>`;
+  // Standard Type1 font. Arabic is emitted as UTF-16BE hex strings, which
+  // compliant readers render through their substitution font — keeping the
+  // writer dependency-free while remaining valid PDF.
   objects[fontObj] =
     `<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>`;
 
@@ -212,14 +291,13 @@ function renderPdf(lines: string[]): Buffer {
 
     let stream = `BT /F1 11 Tf ${leading} TL ${margin} ${pageHeight - margin} Td\n`;
     for (const line of pageLines) {
-      stream += `(${pdfEscapeText(line)}) Tj T*\n`;
+      stream += `${pdfHexUtf16(line)} Tj T*\n`;
     }
     stream += 'ET';
     objects[contentObj] =
       `<< /Length ${Buffer.byteLength(stream, 'latin1')} >>\nstream\n${stream}\nendstream`;
   });
 
-  // Assemble with xref.
   let pdf = '%PDF-1.4\n';
   const offsets: number[] = [];
   for (let i = 1; i < objects.length; i++) {

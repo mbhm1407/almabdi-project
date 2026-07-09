@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { judicialRoleSchema } from './roles.js';
 
 /**
  * A single utterance captured during a hearing. Every line the clerk sees is one
@@ -16,6 +17,8 @@ export const transcriptSegmentSchema = z.object({
   speakerId: z.string().min(1).max(128),
   /** Human-readable label shown in the UI. Defaults to speakerId until mapped. */
   speakerLabel: z.string().min(1).max(128),
+  /** Judicial role assigned to the speaker (defaults to `unassigned`). */
+  speakerRole: judicialRoleSchema.default('unassigned'),
   /** Recognized Arabic text. */
   text: z.string().max(8000),
   /** ISO-8601 timestamp of when the utterance started. */

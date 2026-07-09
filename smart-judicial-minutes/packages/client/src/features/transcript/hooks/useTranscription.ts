@@ -2,20 +2,46 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { apiClient, ApiClientError } from '../../../services/apiClient';
 import { AudioRecorder } from '../../../services/audioRecorder';
 import { SpeechTranscriber, type RecognizedSegment } from '../../../services/speechTranscriber';
-import type { CreateSegmentInput, TranscriptionSession, TranscriptSegment } from '@smj/shared';
+import type {
+  CreateSegmentInput,
+  JudicialRole,
+  TranscriptionSession,
+  TranscriptSegment,
+} from '@smj/shared';
 import type { TeamsMeetingContext } from '../../../teams/teamsClient';
+import type { SessionSetup } from '../types';
 
-export type TranscriptionStatus = 'idle' | 'starting' | 'active' | 'stopping' | 'error';
+export type TranscriptionStatus = 'idle' | 'starting' | 'active' | 'paused' | 'stopping' | 'error';
+
+/** A distinct diarized speaker and its current assignment. */
+export interface SpeakerAssignment {
+  speakerId: string;
+  label: string;
+  role: JudicialRole;
+}
+
+/** Metrics about the saved audio recording, shown in the recordings panel. */
+export interface RecordingInfo {
+  bytes: number;
+  durationMs: number;
+  mimeType: string;
+}
 
 export interface UseTranscription {
   status: TranscriptionStatus;
   session: TranscriptionSession | null;
   segments: TranscriptSegment[];
-  error: string | null;
+  speakers: SpeakerAssignment[];
+  currentSpeaker: SpeakerAssignment | null;
+  elapsedMs: number;
+  recording: RecordingInfo | null;
+  error: unknown | null;
   isSaving: boolean;
-  start: () => Promise<void>;
+  start: (setup: SessionSetup) => Promise<void>;
+  pause: () => void;
+  resume: () => void;
   stop: () => Promise<void>;
-  relabelSpeaker: (speakerId: string, label: string) => void;
+  assignSpeaker: (speakerId: string, label: string, role: JudicialRole) => void;
   clearError: () => void;
 }
 
@@ -23,19 +49,24 @@ const FLUSH_INTERVAL_MS = 4000;
 
 /**
  * Orchestrates a live transcription session end to end:
- *  1. opens a backend session,
+ *  1. opens a backend session (with case number),
  *  2. starts Azure Speech conversation transcription + audio recording,
- *  3. streams recognized segments into local state (live), and
+ *  3. streams recognized segments into local state (live), resolving each
+ *     diarized speaker to its assigned name + judicial role, and
  *  4. periodically persists finalized segments to the API.
  *
- * On stop it flushes the remaining segments, uploads the audio recording, and
- * closes the session.
+ * Supports pause/resume, tracks the current speaker and elapsed time, and on
+ * stop flushes remaining segments, uploads the recording and closes the session.
  */
 export function useTranscription(context: TeamsMeetingContext): UseTranscription {
   const [status, setStatus] = useState<TranscriptionStatus>('idle');
   const [session, setSession] = useState<TranscriptionSession | null>(null);
   const [segments, setSegments] = useState<TranscriptSegment[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const [speakers, setSpeakers] = useState<SpeakerAssignment[]>([]);
+  const [currentSpeaker, setCurrentSpeaker] = useState<SpeakerAssignment | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const [recording, setRecording] = useState<RecordingInfo | null>(null);
+  const [error, setError] = useState<unknown | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   const transcriberRef = useRef<SpeechTranscriber | null>(null);
@@ -43,23 +74,47 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
   const sessionRef = useRef<TranscriptionSession | null>(null);
   /** Finalized segments awaiting persistence, keyed by id. */
   const pendingRef = useRef<Map<string, CreateSegmentInput>>(new Map());
-  /** Clerk-assigned speaker labels, applied to every row for that speaker. */
-  const labelsRef = useRef<Map<string, string>>(new Map());
+  /** Assignment (label + role) per diarized speaker id. */
+  const assignmentsRef = useRef<Map<string, { label: string; role: JudicialRole }>>(new Map());
+  /** Insertion order index per speaker id, for default naming. */
+  const speakerIndexRef = useRef<Map<string, number>>(new Map());
   const flushTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const clockTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /** Mirrors elapsedMs so callbacks can read it without a state dependency. */
+  const elapsedRef = useRef(0);
 
-  const applyLabel = useCallback((speakerId: string, fallback: string): string => {
-    return labelsRef.current.get(speakerId) ?? fallback;
-  }, []);
+  const resolveAssignment = useCallback(
+    (speakerId: string): { label: string; role: JudicialRole } => {
+      const existing = assignmentsRef.current.get(speakerId);
+      if (existing) return existing;
+      let index = speakerIndexRef.current.get(speakerId);
+      if (index == null) {
+        index = speakerIndexRef.current.size + 1;
+        speakerIndexRef.current.set(speakerId, index);
+        const created = { label: `متحدث ${index}`, role: 'unassigned' as JudicialRole };
+        assignmentsRef.current.set(speakerId, created);
+        setSpeakers((prev) => [...prev, { speakerId, ...created }]);
+        return created;
+      }
+      const created = { label: `متحدث ${index}`, role: 'unassigned' as JudicialRole };
+      assignmentsRef.current.set(speakerId, created);
+      return created;
+    },
+    [],
+  );
 
   const upsertSegment = useCallback(
     (incoming: RecognizedSegment) => {
+      const assignment = resolveAssignment(incoming.speakerId);
+      const next: TranscriptSegment = {
+        ...incoming,
+        speakerLabel: assignment.label,
+        speakerRole: assignment.role,
+        sessionId: sessionRef.current?.id ?? '',
+      };
+
+      setCurrentSpeaker({ speakerId: incoming.speakerId, ...assignment });
       setSegments((prev) => {
-        const label = applyLabel(incoming.speakerId, incoming.speakerLabel);
-        const next: TranscriptSegment = {
-          ...incoming,
-          speakerLabel: label,
-          sessionId: sessionRef.current?.id ?? '',
-        };
         const index = prev.findIndex((s) => s.id === incoming.id);
         if (index === -1) return [...prev, next];
         const copy = prev.slice();
@@ -71,7 +126,8 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
         pendingRef.current.set(incoming.id, {
           id: incoming.id,
           speakerId: incoming.speakerId,
-          speakerLabel: applyLabel(incoming.speakerId, incoming.speakerLabel),
+          speakerLabel: assignment.label,
+          speakerRole: assignment.role,
           text: incoming.text,
           timestamp: incoming.timestamp,
           offsetMs: incoming.offsetMs,
@@ -80,7 +136,7 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
         });
       }
     },
-    [applyLabel],
+    [resolveAssignment],
   );
 
   const flush = useCallback(async () => {
@@ -92,77 +148,132 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
       setIsSaving(true);
       await apiClient.saveSegments(current.id, batch);
     } catch (err) {
-      // Re-queue on failure so nothing is lost.
       for (const s of batch) pendingRef.current.set(s.id, s);
-      setError(err instanceof ApiClientError ? err.message : 'تعذر حفظ النص');
+      setError(err instanceof ApiClientError ? err : new Error('تعذر حفظ النص'));
     } finally {
       setIsSaving(false);
     }
   }, []);
 
-  const start = useCallback(async () => {
-    if (status === 'active' || status === 'starting') return;
-    setError(null);
-    setStatus('starting');
-    try {
-      const { session: created } = await apiClient.startSession({
-        meetingId: context.meetingId,
-        meetingTitle: context.meetingTitle,
-      });
-      sessionRef.current = created;
-      setSession(created);
-      setSegments([]);
-
-      const transcriber = new SpeechTranscriber({
-        onSegment: upsertSegment,
-        onError: (message) => setError(message),
-        onStopped: () => {
-          /* handled by explicit stop() */
-        },
-      });
-      transcriberRef.current = transcriber;
-
-      const recorder = new AudioRecorder();
-      recorderRef.current = recorder;
-
-      await transcriber.start();
-      await recorder.start();
-
-      flushTimerRef.current = setInterval(() => void flush(), FLUSH_INTERVAL_MS);
-      setStatus('active');
-    } catch (err) {
-      setStatus('error');
-      setError(err instanceof Error ? err.message : 'تعذر بدء النسخ المباشر');
-      await teardown();
+  const stopClock = useCallback(() => {
+    if (clockTimerRef.current) {
+      clearInterval(clockTimerRef.current);
+      clockTimerRef.current = null;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, context, upsertSegment, flush]);
+  }, []);
+
+  const startClock = useCallback(() => {
+    stopClock();
+    clockTimerRef.current = setInterval(() => {
+      setElapsedMs((ms) => {
+        const next = ms + 1000;
+        elapsedRef.current = next;
+        return next;
+      });
+    }, 1000);
+  }, [stopClock]);
 
   const teardown = useCallback(async () => {
     if (flushTimerRef.current) {
       clearInterval(flushTimerRef.current);
       flushTimerRef.current = null;
     }
+    stopClock();
     await transcriberRef.current?.stop().catch(() => undefined);
     transcriberRef.current = null;
-  }, []);
+  }, [stopClock]);
+
+  const start = useCallback(
+    async (setup: SessionSetup) => {
+      if (status === 'active' || status === 'starting' || status === 'paused') return;
+      setError(null);
+      setStatus('starting');
+
+      // Seed assignments from the roster the clerk prepared. The first roster
+      // entry per role is offered as the default; live diarized speakers are
+      // mapped to these during the hearing.
+      assignmentsRef.current.clear();
+      speakerIndexRef.current.clear();
+      setSpeakers([]);
+      setCurrentSpeaker(null);
+      setElapsedMs(0);
+      elapsedRef.current = 0;
+      setRecording(null);
+
+      try {
+        const { session: created } = await apiClient.startSession({
+          meetingId: context.meetingId,
+          meetingTitle: setup.meetingTitle || context.meetingTitle,
+          caseNumber: setup.caseNumber || null,
+        });
+        sessionRef.current = created;
+        setSession(created);
+        setSegments([]);
+
+        const transcriber = new SpeechTranscriber({
+          onSegment: upsertSegment,
+          onError: (message) => setError(new Error(message)),
+          onStopped: () => {
+            /* handled by explicit stop() */
+          },
+        });
+        transcriberRef.current = transcriber;
+
+        const recorder = new AudioRecorder();
+        recorderRef.current = recorder;
+
+        await transcriber.start();
+        await recorder.start();
+
+        flushTimerRef.current = setInterval(() => void flush(), FLUSH_INTERVAL_MS);
+        startClock();
+        setStatus('active');
+      } catch (err) {
+        setStatus('error');
+        setError(err);
+        await teardown();
+      }
+    },
+    [status, context, upsertSegment, flush, startClock, teardown],
+  );
+
+  const pause = useCallback(() => {
+    if (status !== 'active') return;
+    transcriberRef.current?.pause();
+    recorderRef.current?.pause();
+    stopClock();
+    setStatus('paused');
+  }, [status, stopClock]);
+
+  const resume = useCallback(() => {
+    if (status !== 'paused') return;
+    transcriberRef.current?.resume();
+    recorderRef.current?.resume();
+    startClock();
+    setStatus('active');
+  }, [status, startClock]);
 
   const stop = useCallback(async () => {
-    if (status !== 'active') return;
+    if (status !== 'active' && status !== 'paused') return;
     setStatus('stopping');
     try {
       await teardown();
       await flush();
 
-      // Save the audio recording, then close the session.
       const current = sessionRef.current;
+      const capturedDurationMs = elapsedRef.current;
       const audio = (await recorderRef.current?.stop()) ?? null;
       recorderRef.current = null;
       if (current && audio && audio.size > 0) {
+        setRecording({
+          bytes: audio.size,
+          durationMs: capturedDurationMs,
+          mimeType: audio.type || 'audio/webm',
+        });
         try {
           await apiClient.saveRecording(current.id, audio);
         } catch (err) {
-          setError(err instanceof ApiClientError ? err.message : 'تعذر حفظ التسجيل الصوتي');
+          setError(err instanceof ApiClientError ? err : new Error('تعذر حفظ التسجيل الصوتي'));
         }
       }
       if (current) {
@@ -170,31 +281,45 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
         sessionRef.current = stopped;
         setSession(stopped);
       }
+      setCurrentSpeaker(null);
       setStatus('idle');
     } catch (err) {
       setStatus('error');
-      setError(err instanceof Error ? err.message : 'تعذر إيقاف النسخ');
+      setError(err);
     }
   }, [status, teardown, flush]);
 
-  const relabelSpeaker = useCallback((speakerId: string, label: string) => {
+  const assignSpeaker = useCallback((speakerId: string, label: string, role: JudicialRole) => {
     const trimmed = label.trim();
-    if (!trimmed) return;
-    labelsRef.current.set(speakerId, trimmed);
+    const resolvedLabel = trimmed || assignmentsRef.current.get(speakerId)?.label || speakerId;
+    const assignment = { label: resolvedLabel, role };
+    assignmentsRef.current.set(speakerId, assignment);
+
+    setSpeakers((prev) => {
+      const index = prev.findIndex((s) => s.speakerId === speakerId);
+      const entry: SpeakerAssignment = { speakerId, ...assignment };
+      if (index === -1) return [...prev, entry];
+      const copy = prev.slice();
+      copy[index] = entry;
+      return copy;
+    });
     setSegments((prev) =>
-      prev.map((s) => (s.speakerId === speakerId ? { ...s, speakerLabel: trimmed } : s)),
+      prev.map((s) =>
+        s.speakerId === speakerId ? { ...s, speakerLabel: resolvedLabel, speakerRole: role } : s,
+      ),
     );
-    // Persist the relabeled finals on the next flush.
+    setCurrentSpeaker((prev) =>
+      prev?.speakerId === speakerId ? { speakerId, ...assignment } : prev,
+    );
     for (const [id, seg] of pendingRef.current) {
       if (seg.speakerId === speakerId) {
-        pendingRef.current.set(id, { ...seg, speakerLabel: trimmed });
+        pendingRef.current.set(id, { ...seg, speakerLabel: resolvedLabel, speakerRole: role });
       }
     }
   }, []);
 
   const clearError = useCallback(() => setError(null), []);
 
-  // Clean up on unmount so leaving the tab mid-hearing releases the mic.
   useEffect(() => {
     return () => {
       void teardown();
@@ -206,11 +331,17 @@ export function useTranscription(context: TeamsMeetingContext): UseTranscription
     status,
     session,
     segments,
+    speakers,
+    currentSpeaker,
+    elapsedMs,
+    recording,
     error,
     isSaving,
     start,
+    pause,
+    resume,
     stop,
-    relabelSpeaker,
+    assignSpeaker,
     clearError,
   };
 }
